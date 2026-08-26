@@ -24,6 +24,7 @@ import { TransferDialog } from '@/components/transfer-dialog'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
@@ -1803,35 +1804,33 @@ function CreditCardSettingsDialog({
           )}
           <div className="space-y-2">
             <Label>{t('accounts.creditLimit')}</Label>
-            <Input
-              type="number"
-              step="0.01"
+            <NumberInput
               min="0"
               value={creditLimit}
-              onChange={(e) => setCreditLimit(e.target.value)}
+              onChange={setCreditLimit}
               placeholder="0.00"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('accounts.statementCloseDay')}</Label>
-              <Input
-                type="number"
+              <NumberInput
+                allowDecimals={false}
                 min="1"
                 max="31"
                 value={closeDay}
-                onChange={(e) => setCloseDay(e.target.value)}
+                onChange={setCloseDay}
                 placeholder={t('accounts.dayOfMonthHint')}
               />
             </div>
             <div className="space-y-2">
               <Label>{t('accounts.paymentDueDay')}</Label>
-              <Input
-                type="number"
+              <NumberInput
+                allowDecimals={false}
                 min="1"
                 max="31"
                 value={dueDay}
-                onChange={(e) => setDueDay(e.target.value)}
+                onChange={setDueDay}
                 placeholder={t('accounts.dayOfMonthHint')}
               />
             </div>

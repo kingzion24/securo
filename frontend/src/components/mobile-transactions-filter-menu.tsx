@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { NumberInput } from '@/components/ui/number-input'
 import { CategoryFilterContent } from '@/components/category-filter-content'
 import {
   DropdownMenuCheckboxItem,
@@ -363,14 +364,11 @@ function MobileAmountField({
   return (
     <label className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
       {label}
-      <input
-        type="number"
-        inputMode="decimal"
+      <NumberInput
         min={0}
-        step="0.01"
         placeholder="0.00"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-[13px] font-normal tracking-normal text-foreground outline-none focus:border-primary/60"
       />
     </label>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { getAccountName, sortAccountsByDisplayName } from '@/lib/account-utils'
 import { isInvalidDescriptionAction, parseRulePriority } from '@/lib/rule-form-utils'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
@@ -341,11 +342,10 @@ export function RuleDialog({
             </div>
             <div className="space-y-1.5">
               <Label>{t('rules.priority')}</Label>
-              <Input
-                type="number"
-                step="1"
+              <NumberInput
+                allowDecimals={false}
                 value={priority}
-                onChange={(e) => setPriority(e.target.value)}
+                onChange={setPriority}
                 onBlur={() => {
                   if (priority.trim() === '' || !Number.isFinite(Number(priority))) {
                     setPriority('0')

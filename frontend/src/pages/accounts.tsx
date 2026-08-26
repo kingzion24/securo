@@ -12,6 +12,7 @@ import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -801,12 +802,10 @@ function AccountDialog({
                       ? t('accounts.balanceCreditCard')
                       : t('accounts.balance')}
                   </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <NumberInput
                     min={type === 'credit_card' ? '0' : undefined}
                     value={balance}
-                    onChange={(e) => setBalance(e.target.value)}
+                    onChange={setBalance}
                   />
                 </div>
                 <div className="space-y-2">
@@ -829,35 +828,33 @@ function AccountDialog({
             <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
               <div className="space-y-2">
                 <Label>{t('accounts.creditLimit')}</Label>
-                <Input
-                  type="number"
-                  step="0.01"
+                <NumberInput
                   min="0"
                   value={creditLimit}
-                  onChange={(e) => setCreditLimit(e.target.value)}
+                  onChange={setCreditLimit}
                   placeholder="0.00"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t('accounts.statementCloseDay')}</Label>
-                  <Input
-                    type="number"
+                  <NumberInput
+                    allowDecimals={false}
                     min="1"
                     max="31"
                     value={statementCloseDay}
-                    onChange={(e) => setStatementCloseDay(e.target.value)}
+                    onChange={setStatementCloseDay}
                     placeholder={t('accounts.dayOfMonthHint')}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('accounts.paymentDueDay')}</Label>
-                  <Input
-                    type="number"
+                  <NumberInput
+                    allowDecimals={false}
                     min="1"
                     max="31"
                     value={paymentDueDay}
-                    onChange={(e) => setPaymentDueDay(e.target.value)}
+                    onChange={setPaymentDueDay}
                     placeholder={t('accounts.dayOfMonthHint')}
                   />
                 </div>

@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -367,7 +368,7 @@ function RecurringForm({
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>{t('recurring.amount')}</Label>
-          <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+          <NumberInput value={amount} onChange={setAmount} required />
         </div>
         <div className="space-y-2">
           <Label>{t('recurring.currency')}</Label>
@@ -398,7 +399,7 @@ function RecurringForm({
         {(frequency === 'monthly' || frequency === 'quarterly') && (
           <div className="space-y-2">
             <Label>{t('recurring.dayOfMonth')}</Label>
-            <Input type="number" min="1" max="31" value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} />
+            <NumberInput allowDecimals={false} min="1" max="31" value={dayOfMonth} onChange={setDayOfMonth} />
           </div>
         )}
       </div>

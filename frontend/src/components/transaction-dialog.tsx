@@ -14,6 +14,7 @@ import { flattenConditions, hasConditionGroups } from '@/lib/rule-conditions'
 import { cn, normalizeText } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -922,11 +923,9 @@ function TransactionForm({
               className="bg-muted/40 text-muted-foreground cursor-default select-none"
             />
           ) : (
-            <Input
-              type="number"
-              step="0.01"
+            <NumberInput
               value={amount}
-              onChange={(e) => handleAmountChange(e.target.value)}
+              onChange={handleAmountChange}
               required
               disabled={isSynced}
               className="bg-card"
@@ -994,11 +993,9 @@ function TransactionForm({
                   className="bg-muted/40 text-muted-foreground cursor-default select-none"
                 />
               ) : (
-                <Input
-                  type="number"
-                  step="0.01"
+                <NumberInput
                   value={convertedAmount}
-                  onChange={(e) => handleConvertedAmountChange(e.target.value)}
+                  onChange={handleConvertedAmountChange}
                   placeholder={t('transactions.autoCalculated')}
                   className="bg-card"
                 />
@@ -1006,11 +1003,9 @@ function TransactionForm({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('transactions.exchangeRate')}</Label>
-              <Input
-                type="number"
-                step="0.0001"
+              <NumberInput
                 value={fxRate}
-                onChange={(e) => handleFxRateChange(e.target.value)}
+                onChange={handleFxRateChange}
                 placeholder={t('transactions.autoCalculated')}
                 className="bg-card"
               />
@@ -1234,13 +1229,13 @@ function TransactionForm({
               </div>
               <div className="space-y-2">
                 <Label>{t('transactions.installmentCount')}</Label>
-                <input
-                  type="number"
+                <NumberInput
+                  allowDecimals={false}
                   min={2}
                   max={360}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card focus:outline-none focus-visible:ring-ring/30 focus-visible:ring-[2px]"
                   value={installmentCount}
-                  onChange={(e) => setInstallmentCount(e.target.value)}
+                  onChange={setInstallmentCount}
                 />
               </div>
             </div>

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -145,7 +146,7 @@ function RepaymentForm({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">{t('loans.amount')}</Label>
-            <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <NumberInput value={amount} onChange={setAmount} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">{t('loans.date')}</Label>
@@ -588,10 +589,8 @@ export default function LoansPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('loans.principalAmount')}</Label>
-                <Input
+                <NumberInput
                   name="principal_amount"
-                  type="number"
-                  step="0.01"
                   defaultValue={editing?.principal_amount?.toString() ?? ''}
                   required
                 />

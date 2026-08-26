@@ -38,6 +38,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useWorkspace } from '@/contexts/workspace-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -1140,11 +1141,9 @@ export default function GroupDetailPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2 col-span-2">
                 <Label>{t('splitGroups.amount')}</Label>
-                <Input
-                  type="number"
-                  step="0.01"
+                <NumberInput
                   value={settleAmount}
-                  onChange={(e) => setSettleAmount(e.target.value)}
+                  onChange={setSettleAmount}
                   disabled={settleTxMode === 'existing'}
                 />
               </div>
