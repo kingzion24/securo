@@ -1,5 +1,6 @@
 .venv/
 .env
+__pycache__/
 secrets/
 .worktrees/
 .DS_Store
