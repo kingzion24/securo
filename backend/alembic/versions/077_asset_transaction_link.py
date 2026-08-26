@@ -1,7 +1,7 @@
 """link asset transactions to a bank transaction
 
-Revision ID: 076
-Revises: 075
+Revision ID: 077
+Revises: 076
 Create Date: 2026-08-26
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "076"
-down_revision: Union[str, None] = "075"
+revision: str = "077"
+down_revision: Union[str, None] = "076"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
