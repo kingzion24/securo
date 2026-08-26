@@ -17,6 +17,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.asset import Asset
 from app.models.asset_transaction import AssetTransaction
@@ -179,6 +180,8 @@ def _tx_to_read(tx: AssetTransaction, asset: Optional[Asset] = None) -> AssetTra
         ticker=asset.ticker if asset else None,
         currency=asset.currency if asset else None,
         logo_url=asset.logo_url if asset else None,
+        transaction_id=tx.transaction_id,
+        transaction_description=tx.transaction.description if tx.transaction else None,
     )
 
 
@@ -201,6 +204,7 @@ async def list_asset_transactions(
         select(AssetTransaction)
         .where(AssetTransaction.asset_id == asset_id)
         .order_by(AssetTransaction.date.desc(), AssetTransaction.created_at.desc())
+        .options(selectinload(AssetTransaction.transaction))
     )
     return [_tx_to_read(tx, asset) for tx in result.scalars().all()]
 
@@ -218,6 +222,7 @@ async def list_workspace_transactions(
         select(AssetTransaction, Asset)
         .join(Asset, AssetTransaction.asset_id == Asset.id)
         .where(AssetTransaction.workspace_id == workspace_id)
+        .options(selectinload(AssetTransaction.transaction))
     )
     if ticker:
         query = query.where(Asset.ticker == ticker.upper())
@@ -258,6 +263,11 @@ async def add_transaction(
     if asset is None:
         return None
     _validate(data.kind, data.quantity, data.price)
+    if data.transaction_id is not None:
+        from app.models.transaction import Transaction as _Transaction
+        linked = await session.get(_Transaction, data.transaction_id)
+        if linked is None or linked.workspace_id != workspace_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Linked transaction not found")
     new_tx = AssetTransaction(
         asset_id=asset.id,
         workspace_id=workspace_id,
@@ -268,6 +278,7 @@ async def add_transaction(
         date=data.date,
         source="manual",
         notes=data.notes,
+        transaction_id=data.transaction_id,
         created_at=datetime.now(timezone.utc),
     )
     if data.kind == "sell":

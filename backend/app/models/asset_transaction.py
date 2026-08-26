@@ -11,6 +11,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.asset import Asset
+    from app.models.transaction import Transaction
 
 
 class AssetTransaction(Base):
@@ -45,6 +46,17 @@ class AssetTransaction(Base):
     import_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("import_logs.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Optional link to the bank/wallet transaction that moved the cash for
+    # this buy/sell — e.g. a bank debit that funded a purchase, or a bank
+    # credit that received sale proceeds. SET NULL on delete: the ledger
+    # entry survives if the linked transaction is later removed. Linking
+    # (in either direction) excludes that transaction from income/expense
+    # totals via `counts_as_pnl()`, the same mechanism used for loan
+    # repayments — a one-sided investment movement is not real P&L.
+    transaction_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     asset: Mapped["Asset"] = relationship(back_populates="transactions")
+    transaction: Mapped[Optional["Transaction"]] = relationship()

@@ -606,6 +606,394 @@ def parse_csv(
     return transactions
 
 
+# ---------------------------------------------------------------------------
+# Tanzanian mobile-money/bank SMS and receipt messages (M-Pesa, Selcom, TCB).
+#
+# Unlike the formats above, this isn't a file — it's one or more short
+# notification messages pasted directly into the import form (no supported
+# bank-sync provider exists for these). A single paste often has no blank
+# lines between messages at all (SMS apps concatenate them freely), so
+# messages are split on distinctive leading markers rather than whitespace.
+# ---------------------------------------------------------------------------
+def _tz_normalize_amount(s: str) -> Decimal:
+    return Decimal(s.replace(",", "").strip())
+
+
+_MPESA_SMS_RE = re.compile(
+    r"^(?P<ref>[A-Z0-9]{8,12})\s+Confirmed\.\s+Tsh(?P<amount>[\d,]+\.\d{2})\s+"
+    r"(?P<verb>paid to|sent to|received from)\s+(?P<payee>.+?)"
+    r"(?:\s+for account\s+(?P<account>\d+))?"
+    r"\s+on\s+(?P<day>\d{1,2})/(?P<month>\d{1,2})/(?P<year>\d{2,4})"
+    r"\s+at\s+(?P<time>\d{1,2}:\d{2}\s*[ap]m)"
+    r"(?P<fee_block>.*?)"
+    r"(?:New M-Pesa balance is|Balance is)\s+Tsh(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
+_MPESA_FEE_SIMPLE_RE = re.compile(r"charged\s+Tsh(?P<fee>[\d,]+\.\d{2})", re.IGNORECASE)
+_MPESA_FEE_BREAKDOWN_RE = re.compile(
+    r"Total fee\s+Tsh(?P<total>[\d,]+\.\d{2})\s+"
+    r"\(M-Pesa fee\s+Tsh(?P<mpesa_fee>[\d,]+\.\d{2})\s+\+\s+Government Levy\s+Tsh(?P<levy>[\d,]+\.\d{2})\)",
+    re.IGNORECASE,
+)
+
+
+def _tz_parse_mpesa_sms(text: str) -> list[TransactionImport]:
+    m = _MPESA_SMS_RE.search(text)
+    if not m:
+        return []
+    amount = _tz_normalize_amount(m["amount"])
+    year = m["year"] if len(m["year"]) == 4 else f"20{m['year']}"
+    txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{year}", "%d/%m/%Y").date()
+    payee = m["payee"].strip()
+    if m["account"]:
+        payee = f"{payee} ({m['account']})"
+    verb = m["verb"].lower()
+    is_credit = verb == "received from"
+
+    rows = [TransactionImport(
+        description=f"M-Pesa: {verb} {payee}",
+        amount=amount,
+        date=txn_date,
+        type="credit" if is_credit else "debit",
+        currency="TZS",
+        external_id=m["ref"],
+    )]
+
+    fee_block = m["fee_block"] or ""
+    breakdown = _MPESA_FEE_BREAKDOWN_RE.search(fee_block)
+    simple = _MPESA_FEE_SIMPLE_RE.search(fee_block)
+    if breakdown:
+        total_fee = _tz_normalize_amount(breakdown["total"])
+        if total_fee > 0:
+            rows.append(TransactionImport(
+                description="M-Pesa fee + government levy",
+                amount=total_fee,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=f"{m['ref']}-fee",
+            ))
+    elif simple:
+        fee = _tz_normalize_amount(simple["fee"])
+        if fee > 0:
+            rows.append(TransactionImport(
+                description="M-Pesa fee",
+                amount=fee,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=f"{m['ref']}-fee",
+            ))
+    return rows
+
+
+_SELCOM_HEADER_RE = re.compile(r"^Selcom Pay\s*$", re.IGNORECASE | re.MULTILINE)
+_SELCOM_AMOUNT_RE = re.compile(r"TZS\s+([\d,]+\.\d{2})")
+_SELCOM_TRANSID_RE = re.compile(r"TransID\s+(\S+)")
+_SELCOM_DATETIME_RE = re.compile(
+    r"(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}:\d{2}:\d{2}\s*[AP]M)", re.IGNORECASE
+)
+
+
+def _tz_parse_selcom_receipt(text: str) -> list[TransactionImport]:
+    if not _SELCOM_HEADER_RE.search(text):
+        return []
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    merchant = lines[1] if len(lines) > 1 else "Selcom merchant"
+    amount_m = _SELCOM_AMOUNT_RE.search(text)
+    transid_m = _SELCOM_TRANSID_RE.search(text)
+    dt_m = _SELCOM_DATETIME_RE.search(text)
+    if not amount_m:
+        return []
+    amount = _tz_normalize_amount(amount_m.group(1))
+    if not dt_m:
+        return []
+    day, month, year, _time = dt_m.groups()
+    txn_date = datetime.strptime(f"{day}/{month}/{year}", "%d/%m/%Y").date()
+    return [TransactionImport(
+        description=f"Selcom Pay: {merchant}",
+        amount=amount,
+        date=txn_date,
+        type="debit",
+        currency="TZS",
+        external_id=transid_m.group(1) if transid_m else None,
+    )]
+
+
+# Selcom Swahili SMS: transfers arrive as TWO messages sharing the same
+# leading ref, sent moments apart — an immediate "Imethibitishwa" notice
+# with no fee/balance, then an "Imepokelewa" settlement notice with the fee
+# breakdown. Only the settlement version is usable; see _tz_dedup_selcom.
+_SELCOM_TRANSFER_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+(?:Imethibitishwa|Imepokelewa)\.\s+"
+    r"Umetuma\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<payee>.+?)"
+    r"(?:\s+-\s+(?P<service>[^(]+?))?\s*\((?P<phone>\d+)\)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"(?P<tail>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_SELCOM_TRANSFER_SETTLED_RE = re.compile(
+    r"Ada Jumla\s+TZS\s+(?P<fee>[\d,]+\.\d{2})\s*"
+    r"\(Ada\s+(?P<ada>[\d,.]+),\s*VAT\s+(?P<vat>[\d,.]+),\s*Ex Duty\s+(?P<exduty>[\d,.]+)\)\.\s*"
+    r"Salio jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE,
+)
+_SELCOM_CARD_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+Imethibitishwa\.\s+"
+    r"Umelipa\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<merchant>.+?)\s+"
+    r"kwa kutumia kadi yako inayoishia\s+(?P<last4>\d+)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"Salio jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _tz_parse_selcom_sw(text: str) -> tuple[str, bool, list[TransactionImport]] | None:
+    """Return (ref, has_settlement_data, transactions) for a Selcom Swahili SMS, or None."""
+    m = _SELCOM_CARD_RE.search(text)
+    if m:
+        txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{m['date']}", "%d/%m/%Y").date()
+        amount = _tz_normalize_amount(m["amount"])
+        txn = TransactionImport(
+            description=f"Selcom card payment: {m['merchant'].strip()} (card *{m['last4']})",
+            amount=amount,
+            date=txn_date,
+            type="debit",
+            currency="TZS",
+            external_id=m["ref"],
+        )
+        return (m["ref"], True, [txn])
+
+    m = _SELCOM_TRANSFER_RE.search(text)
+    if m:
+        txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{m['date']}", "%d/%m/%Y").date()
+        amount = _tz_normalize_amount(m["amount"])
+        payee = m["payee"].strip()
+        if m["service"]:
+            payee = f"{payee} - {m['service'].strip()}"
+        settled = _SELCOM_TRANSFER_SETTLED_RE.search(m["tail"] or "")
+        if not settled:
+            txn = TransactionImport(
+                description=f"Selcom transfer: {payee}",
+                amount=amount,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=m["ref"],
+            )
+            return (m["ref"], False, [txn])
+
+        txns = [TransactionImport(
+            description=f"Selcom transfer: {payee}",
+            amount=amount,
+            date=txn_date,
+            type="debit",
+            currency="TZS",
+            external_id=m["ref"],
+        )]
+        fee = _tz_normalize_amount(settled["fee"])
+        if fee > 0:
+            txns.append(TransactionImport(
+                description="Selcom fee (Ada/VAT/Ex Duty)",
+                amount=fee,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=f"{m['ref']}-fee",
+            ))
+        return (m["ref"], True, txns)
+
+    return None
+
+
+_TCB_SMS_AMOUNT_RE = re.compile(r"TZS\s+([\d,]+(?:\.\d{2})?)")
+_TCB_SMS_ACCOUNT_RE = re.compile(r"A(?:kaunti)?/?C\.?\s*(?:No\.?)?:?\s*([\dX*]{4,})")
+_TCB_SMS_DATE_RE = re.compile(r"Tar(?:ehe)?:\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})")
+_TCB_DEBIT_KEYWORDS = ("zimetolewa", "umetoa", "zimetumwa")
+_TCB_CREDIT_KEYWORDS = ("zimewekwa", "imewekwa", "umepokea", "yamepokelewa", "imepokea")
+_TCB_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _tz_parse_tcb_sms(text: str, fallback_date) -> tuple[list[TransactionImport], list[str]]:
+    """Returns (transactions, warnings). fallback_date is used (and flagged
+    in a warning) when the message carries no date of its own — the
+    "Kumbukumbu namba" template below is the only case that hits this."""
+    lower = text.lower()
+    is_debit = any(k in lower for k in _TCB_DEBIT_KEYWORDS)
+    is_credit = any(k in lower for k in _TCB_CREDIT_KEYWORDS)
+    if not is_debit and not is_credit:
+        return [], []
+    amount_m = _TCB_SMS_AMOUNT_RE.search(text)
+    account_m = _TCB_SMS_ACCOUNT_RE.search(text)
+    date_m = _TCB_SMS_DATE_RE.search(text)
+    if not amount_m:
+        return [], []
+    amount = _tz_normalize_amount(amount_m.group(1))
+    warnings: list[str] = []
+    if date_m:
+        day, mon, year = date_m.groups()
+        txn_date = datetime(int(year), _TCB_MONTHS[mon[:3].lower()], int(day)).date()
+    else:
+        txn_date = fallback_date
+        warnings.append(
+            f"TCB message for TZS {amount} has no date field — used {fallback_date.isoformat()} "
+            f"as a placeholder. Fix the date before relying on it."
+        )
+    account = f" ({account_m.group(1)})" if account_m else ""
+
+    desc_m = re.search(r"Tar(?:ehe)?:\s*\d{1,2}-[A-Za-z]{3}-\d{4},\s*(.+?),\s*Piga", text, re.IGNORECASE | re.DOTALL)
+    if desc_m:
+        desc = desc_m.group(1).strip()
+    else:
+        maelezo_m = re.search(r"Maelezo:\s*(.*)$", text, re.IGNORECASE | re.DOTALL)
+        desc = maelezo_m.group(1).strip() if maelezo_m and maelezo_m.group(1).strip() else "TCB alert"
+
+    return [TransactionImport(
+        description=f"TCB{account}: {desc}",
+        amount=amount,
+        date=txn_date,
+        type="credit" if is_credit else "debit",
+        currency="TZS",
+    )], warnings
+
+
+_TCB_KUMBUKUMBU_RE = re.compile(
+    r"Kumbukumbu namba:\s*(?P<ref>\S+),\s*TZS\s+(?P<amount>[\d,]+(?:\.\d{2})?)\s*/=\s*"
+    r"kutoka\s+Akaunti:\s*(?P<from_acct>\S+)\s+zimetumwa\s+kwenda,\s*"
+    r"Akaunti:\s*(?P<to_acct>\S+)\s*-\s*(?P<to_label>[^,]+),\s*"
+    r"kwa njia ya:\s*(?P<method>\S+)\s*\((?P<method_ref>[^)]+)\)"
+    r"(?:\s*Maelezo:\s*(?P<desc>.*))?$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _tz_parse_tcb_kumbukumbu(text: str, fallback_date) -> tuple[list[TransactionImport], list[str]] | None:
+    m = _TCB_KUMBUKUMBU_RE.search(text)
+    if not m:
+        return None
+    amount = _tz_normalize_amount(m["amount"])
+    desc = (m["desc"] or "").strip()
+    label = f"TCB: sent to {m['to_label'].strip()} via {m['method']} {m['method_ref']}"
+    if desc:
+        label += f" — {desc}"
+    warning = (
+        f"TCB transfer ref {m['ref']} (TZS {amount}) has no date field — used "
+        f"{fallback_date.isoformat()} as a placeholder. This message type is also commonly "
+        f"a duplicate of a plain TCB debit alert or a line already in a TCB PDF statement — "
+        f"check for double-counting before importing."
+    )
+    return [TransactionImport(
+        description=label,
+        amount=amount,
+        date=fallback_date,
+        type="debit",
+        currency="TZS",
+        external_id=m["ref"],
+    )], [warning]
+
+
+# Markers indicating a new message is starting, used to split messages
+# pasted back-to-back with no blank line between them. No leading \b: real
+# pastes often glue one message's trailing support number straight into the
+# next message's ref with no separator at all (e.g. "...0800 784
+# 8880821P44QH Imepokelewa..."), and \b can't fire between two digits.
+_MSG_START_RE = re.compile(
+    r"(?=[0-9]{3,4}P[0-9A-Z]{3,8}\s+(?:Imethibitishwa|Imepokelewa)\b)"
+    r"|(?=[A-Z0-9]{8,12}\s+Confirmed\b)"
+)
+
+
+def _tz_split_concatenated(block: str) -> list[str]:
+    raw_positions = [m.start() for m in _MSG_START_RE.finditer(block)]
+    # The variable-length {3,4} digit run means a single true ref can also
+    # match starting one character late (both "0821P44QH" and the substring
+    # "821P44QH" satisfy the pattern independently). Collapse any cluster of
+    # candidates closer together than a real message ever is to its
+    # leftmost (= most complete) position.
+    positions: list[int] = []
+    for pos in raw_positions:
+        if not positions or pos - positions[-1] > 20:
+            positions.append(pos)
+    if len(positions) <= 1:
+        return [block]
+    segments = []
+    for i, pos in enumerate(positions):
+        end = positions[i + 1] if i + 1 < len(positions) else len(block)
+        segment = block[pos:end].strip()
+        if segment:
+            segments.append(segment)
+    return segments
+
+
+def parse_tz_messages(text: str) -> tuple[list[TransactionImport], list[str]]:
+    """Parse one or more pasted M-Pesa/Selcom/TCB SMS or receipt messages.
+
+    Returns (transactions, warnings). Warnings surface things a human should
+    double-check (missing dates, likely duplicates) without blocking the
+    import outright.
+    """
+    today = datetime.now().date()
+    coarse_blocks = [b.strip() for b in re.split(r"\n\s*\n", text) if b.strip()]
+    blocks: list[str] = []
+    for b in coarse_blocks:
+        blocks.extend(_tz_split_concatenated(b))
+
+    selcom_by_ref: dict[str, tuple[bool, list[TransactionImport]]] = {}
+    exact_seen: set[str] = set()
+    transactions: list[TransactionImport] = []
+    warnings: list[str] = []
+    unparsed = 0
+
+    for block in blocks:
+        if block in exact_seen:
+            continue
+        exact_seen.add(block)
+
+        selcom = _tz_parse_selcom_sw(block)
+        if selcom:
+            ref, has_data, txns = selcom
+            existing = selcom_by_ref.get(ref)
+            if existing is None or (has_data and not existing[0]):
+                selcom_by_ref[ref] = (has_data, txns)
+            continue
+
+        kumbukumbu = _tz_parse_tcb_kumbukumbu(block, today)
+        if kumbukumbu:
+            txns, warns = kumbukumbu
+            transactions.extend(txns)
+            warnings.extend(warns)
+            continue
+
+        mpesa = _tz_parse_mpesa_sms(block)
+        if mpesa:
+            transactions.extend(mpesa)
+            continue
+
+        selcom_receipt = _tz_parse_selcom_receipt(block)
+        if selcom_receipt:
+            transactions.extend(selcom_receipt)
+            continue
+
+        tcb_txns, tcb_warns = _tz_parse_tcb_sms(block, today)
+        if tcb_txns:
+            transactions.extend(tcb_txns)
+            warnings.extend(tcb_warns)
+            continue
+
+        unparsed += 1
+
+    for _has_data, txns in selcom_by_ref.values():
+        transactions.extend(txns)
+
+    if unparsed:
+        warnings.append(f"{unparsed} pasted message(s) did not match any known format and were skipped.")
+
+    return transactions, warnings
+
+
 async def enrich_with_category_suggestions(
     session: AsyncSession,
     workspace_id: uuid.UUID,

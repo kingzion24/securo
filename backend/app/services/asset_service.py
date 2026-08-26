@@ -18,7 +18,7 @@ from app.providers.market_price import (
     MarketPriceRateLimitedError,
     get_market_price_provider,
 )
-from app.schemas.asset import AssetCreate, AssetUpdate, AssetValueCreate, AssetRead, AssetValueRead
+from app.schemas.asset import AssetCreate, AssetUpdate, AssetValueCreate, AssetRead, AssetValueRead, AssetManualPriceUpdate
 from app.services.fx_rate_service import convert, stamp_primary_amount
 
 logger = logging.getLogger(__name__)
@@ -426,13 +426,14 @@ async def create_asset(
     # Market-priced path: fetch a live quote first so we can derive currency
     # and the initial value from the ticker. Validate up-front rather than
     # half-creating an asset and failing on a 5xx from Yahoo.
+    #
+    # A ticker is required when Securo is expected to look the price up
+    # itself — but "market-priced" also covers holdings with no public quote
+    # at all (a unit trust fund, a private fund): those skip this whole
+    # branch, get created bare, and get their price from a buy transaction
+    # plus a manual NAV update (see `update_manual_price`) instead.
     quote = None
-    if data.valuation_method == "market_price":
-        if not data.ticker:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="ticker is required for market_price assets",
-            )
+    if data.valuation_method == "market_price" and data.ticker:
         if data.units is None or data.units <= 0:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -477,7 +478,10 @@ async def create_asset(
         source=(
             "tesouro_direto"
             if quote and quote.exchange == "Tesouro Direto"
-            else ("yfinance" if data.valuation_method == "market_price" else "manual")
+            # "yfinance" only when a quote was actually fetched — a
+            # ticker-less market_price asset never had one, and mislabeling
+            # it would claim a data source it doesn't have.
+            else ("yfinance" if quote else "manual")
         ),
     )
     session.add(asset)
@@ -980,14 +984,16 @@ async def get_asset_values_at(
 
 
 async def _apply_price_to_asset(
-    session: AsyncSession, asset: Asset, new_price: Decimal, *, value_date: date | None = None
+    session: AsyncSession, asset: Asset, new_price: Decimal, *, value_date: date | None = None, source: str = "sync",
 ) -> None:
     """Update the cached price and upsert today's AssetValue.
 
-    Shared by the single-asset and batch refresh paths so both behave
-    identically: price + timestamp get stamped; today's value gets
-    inserted or overwritten so running the task multiple times per day
-    doesn't pile up duplicate rows.
+    Shared by the single-asset refresh, batch refresh, and manual-price-entry
+    paths so all three behave identically: price + timestamp get stamped;
+    the value on `value_date` gets inserted or overwritten so re-applying a
+    price for the same day doesn't pile up duplicate rows. `source` records
+    which path it came from ("sync" for ticker refreshes, "manual" for a
+    hand-entered NAV on a ticker-less holding).
     """
     asset.last_price = new_price
     asset.last_price_at = datetime.now(timezone.utc)
@@ -1007,7 +1013,7 @@ async def _apply_price_to_asset(
     if today_value is not None:
         today_value.amount = new_amount
         today_value.price = new_price
-        today_value.source = "sync"
+        today_value.source = source
     else:
         session.add(
             AssetValue(
@@ -1015,7 +1021,7 @@ async def _apply_price_to_asset(
                 amount=new_amount,
                 price=new_price,
                 date=today,
-                source="sync",
+                source=source,
             )
         )
 
@@ -1057,6 +1063,40 @@ async def refresh_market_price_asset(
         asset.logo_url = quote.logo_url
     await session.flush()
     return True
+
+
+async def update_manual_price(
+    session: AsyncSession,
+    asset_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    data: AssetManualPriceUpdate,
+) -> Optional[AssetRead]:
+    """Hand-entered NAV/price for a market-priced holding with no ticker
+    (a unit trust fund, a private fund, anything Securo can't quote itself).
+
+    Restricted to ticker-less assets: a ticker's price is owned by the sync
+    job, and letting a manual entry fight it would make refreshes look like
+    they're silently reverting the user's input.
+    """
+    result = await session.execute(
+        select(Asset).where(Asset.id == asset_id, Asset.workspace_id == workspace_id)
+    )
+    asset = result.scalar_one_or_none()
+    if asset is None:
+        return None
+    if asset.valuation_method != "market_price":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Manual price entry requires valuation_method='market_price'",
+        )
+    if asset.ticker:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This asset has a ticker; its price is set by the market sync, not manually",
+        )
+    await _apply_price_to_asset(session, asset, data.price, value_date=data.date, source="manual")
+    await session.commit()
+    return await get_asset(session, asset.id, workspace_id)
 
 
 async def refresh_all_market_prices(

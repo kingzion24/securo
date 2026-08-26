@@ -155,10 +155,12 @@ def parse_selcom_receipt(text: str) -> list[Row]:
 # TCB bank SMS alert (Swahili)
 # ---------------------------------------------------------------------------
 _TCB_SMS_AMOUNT_RE = re.compile(r"TZS\s+([\d,]+(?:\.\d{2})?)")
-_TCB_SMS_ACCOUNT_RE = re.compile(r"A/C No:\s*(\S+)")
-_TCB_SMS_DATE_RE = re.compile(r"Tar:\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})")
-_TCB_DEBIT_KEYWORDS = ("zimetolewa", "umetoa")
-_TCB_CREDIT_KEYWORDS = ("zimewekwa", "imewekwa", "umepokea", "yamepokelewa")
+_TCB_SMS_ACCOUNT_RE = re.compile(r"A(?:kaunti)?/?C\.?\s*(?:No\.?)?:?\s*([\dX*]{4,})")
+# "Tar:" and "Tarehe:" are the same word (short and full form); both appear
+# across the different TCB alert templates.
+_TCB_SMS_DATE_RE = re.compile(r"Tar(?:ehe)?:\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})")
+_TCB_DEBIT_KEYWORDS = ("zimetolewa", "umetoa", "zimetumwa")
+_TCB_CREDIT_KEYWORDS = ("zimewekwa", "imewekwa", "umepokea", "yamepokelewa", "imepokea")
 
 
 def parse_tcb_sms(text: str) -> list[Row]:
@@ -173,20 +175,29 @@ def parse_tcb_sms(text: str) -> list[Row]:
     if not amount_m:
         return []
     amount = _normalize_amount(amount_m.group(1))
-    date = "01/01/1970"
+    date = ""  # flagged as missing below rather than guessed
     if date_m:
         day, mon, year = date_m.groups()
         date = _normalize_date(day, mon, year)
     account = f" ({account_m.group(1)})" if account_m else ""
-    # Description: whatever comes between the "Tar: <date>," marker and the
-    # "Piga ... ikiwa huutambui" (call this number if you don't recognise
-    # this transaction) boilerplate every TCB alert ends with. Anchored on
-    # "Tar:" rather than a bare comma, since the amount itself (e.g.
-    # "100,000") contains commas that would otherwise be matched first.
-    desc_m = re.search(r"Tar:\s*\d{1,2}-[A-Za-z]{3}-\d{4},\s*(.+?),\s*Piga", text, re.IGNORECASE)
-    desc = desc_m.group(1).strip() if desc_m else "TCB alert"
+
+    # Description: two known templates.
+    # 1. "...Tar(ehe): <date>, <description>, Piga ... ikiwa huutambui..."
+    #    (debit/credit alert). Anchored on "Tar(ehe):" rather than a bare
+    #    comma, since the amount itself (e.g. "100,000") contains commas
+    #    that would otherwise be matched first.
+    # 2. "...Maelezo: <description>" (used by both the "Imepokea Ingizo"
+    #    credit alert and the "Kumbukumbu namba" TIPS transfer detail,
+    #    neither of which has the "Piga" boilerplate).
+    desc_m = re.search(r"Tar(?:ehe)?:\s*\d{1,2}-[A-Za-z]{3}-\d{4},\s*(.+?),\s*Piga", text, re.IGNORECASE | re.DOTALL)
+    if desc_m:
+        desc = desc_m.group(1).strip()
+    else:
+        maelezo_m = re.search(r"Maelezo:\s*(.*)$", text, re.IGNORECASE | re.DOTALL)
+        desc = maelezo_m.group(1).strip() if maelezo_m and maelezo_m.group(1).strip() else "TCB alert"
+
     return [Row(
-        date=date,
+        date=date or "UNKNOWN",
         description=f"TCB{account}: {desc}",
         inflow="" if is_debit else amount,
         outflow=amount if is_debit else "",
@@ -195,7 +206,168 @@ def parse_tcb_sms(text: str) -> list[Row]:
 
 
 # ---------------------------------------------------------------------------
-_PARSERS = [parse_mpesa_sms, parse_selcom_receipt, parse_tcb_sms]
+# TCB "Kumbukumbu namba" TIPS transfer detail — a second notification some
+# outgoing transfers get alongside (not instead of) the plain "Zimetolewa"
+# debit alert above, carrying the destination account and TIPS reference
+# but, notably, no date of its own.
+# ---------------------------------------------------------------------------
+_TCB_KUMBUKUMBU_RE = re.compile(
+    r"Kumbukumbu namba:\s*(?P<ref>\S+),\s*TZS\s+(?P<amount>[\d,]+(?:\.\d{2})?)\s*/=\s*"
+    r"kutoka\s+Akaunti:\s*(?P<from_acct>\S+)\s+zimetumwa\s+kwenda,\s*"
+    r"Akaunti:\s*(?P<to_acct>\S+)\s*-\s*(?P<to_label>[^,]+),\s*"
+    r"kwa njia ya:\s*(?P<method>\S+)\s*\((?P<method_ref>[^)]+)\)"
+    r"(?:\s*Maelezo:\s*(?P<desc>.*))?$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def parse_tcb_kumbukumbu(text: str) -> list[Row]:
+    m = _TCB_KUMBUKUMBU_RE.search(text)
+    if not m:
+        return []
+    amount = _normalize_amount(m["amount"])
+    desc = (m["desc"] or "").strip()
+    label = f"TCB: sent to {m['to_label'].strip()} via {m['method']} {m['method_ref']} [{m['ref']}]"
+    if desc:
+        label += f" — {desc}"
+    return [Row(
+        date="UNKNOWN",  # this message template carries no date field
+        description=label,
+        inflow="", outflow=amount,
+        balance="",
+    )]
+
+
+# ---------------------------------------------------------------------------
+# Selcom Swahili SMS (transfer confirmation and card payment confirmation).
+#
+# Transfers arrive as TWO messages sharing the same leading ref, sent
+# moments apart: an immediate "Imethibitishwa" notice with no fee/balance,
+# followed by an "Imepokelewa" settlement notice with the fee breakdown and
+# running balance. Only the settlement version carries usable data, so the
+# bare one is dropped whenever a fuller one with the same ref is present in
+# the same batch. The same ref-based dedup also catches accidental
+# copy-paste duplicates of an identical message.
+# ---------------------------------------------------------------------------
+_SELCOM_SW_REF_RE = re.compile(r"^([0-9]{3,4}P[0-9A-Z]{3,8})\s+(?:Imethibitishwa|Imepokelewa)\b", re.IGNORECASE)
+
+_SELCOM_TRANSFER_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+(?:Imethibitishwa|Imepokelewa)\.\s+"
+    r"Umetuma\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<payee>.+?)"
+    r"(?:\s+-\s+(?P<service>[^(]+?))?\s*\((?P<phone>\d+)\)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"(?P<tail>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_SELCOM_TRANSFER_SETTLED_RE = re.compile(
+    r"Ada Jumla\s+TZS\s+(?P<fee>[\d,]+\.\d{2})\s*"
+    r"\(Ada\s+(?P<ada>[\d,.]+),\s*VAT\s+(?P<vat>[\d,.]+),\s*Ex Duty\s+(?P<exduty>[\d,.]+)\)\.\s*"
+    r"Salio jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE,
+)
+
+_SELCOM_CARD_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+Imethibitishwa\.\s+"
+    r"Umelipa\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<merchant>.+?)\s+"
+    r"kwa kutumia kadi yako inayoishia\s+(?P<last4>\d+)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"Salio jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def parse_selcom_sw(text: str) -> tuple[str, bool, list[Row]] | None:
+    """Return (ref, has_settlement_data, rows) for a Selcom Swahili SMS, or None."""
+    m = _SELCOM_CARD_RE.search(text)
+    if m:
+        date = f"{m['day']}/{m['month']}/{m['date']}"
+        amount = _normalize_amount(m["amount"])
+        row = Row(
+            date=date,
+            description=f"Selcom card payment: {m['merchant'].strip()} (card *{m['last4']}) [{m['ref']}]",
+            inflow="", outflow=amount,
+            balance=_normalize_amount(m["balance"]),
+        )
+        return (m["ref"], True, [row])
+
+    m = _SELCOM_TRANSFER_RE.search(text)
+    if m:
+        date = f"{m['day']}/{m['month']}/{m['date']}"
+        amount = _normalize_amount(m["amount"])
+        payee = m["payee"].strip()
+        if m["service"]:
+            payee = f"{payee} - {m['service'].strip()}"
+        settled = _SELCOM_TRANSFER_SETTLED_RE.search(m["tail"] or "")
+        if not settled:
+            # Bare pre-settlement notice: no fee/balance yet. Still returned
+            # (has_data=False) so it's only used if no settled version of
+            # the same ref shows up elsewhere in the batch.
+            row = Row(
+                date=date,
+                description=f"Selcom transfer: {payee} [{m['ref']}]",
+                inflow="", outflow=amount,
+                balance="",
+            )
+            return (m["ref"], False, [row])
+
+        balance = _normalize_amount(settled["balance"])
+        rows = [Row(
+            date=date,
+            description=f"Selcom transfer: {payee} [{m['ref']}]",
+            inflow="", outflow=amount,
+            balance=balance,
+        )]
+        fee = float(_normalize_amount(settled["fee"]))
+        if fee > 0:
+            rows.append(Row(
+                date=date,
+                description=f"Selcom fee (Ada/VAT/Ex Duty) [{m['ref']}]",
+                inflow="", outflow=_normalize_amount(settled["fee"]),
+                balance=balance,
+            ))
+        return (m["ref"], True, rows)
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+_PARSERS = [parse_mpesa_sms, parse_selcom_receipt, parse_tcb_kumbukumbu, parse_tcb_sms]
+
+# Markers that indicate a new message is starting, used to split apart
+# multiple SMS pasted back-to-back with no blank line between them. No
+# leading \b: real-world pastes often glue one message's trailing support
+# number straight into the next message's ref with no separator at all
+# (e.g. "...0800 784 8880821P44QH Imepokelewa..."), and \b can't fire
+# between two digits. Dropping it still finds the right start position —
+# the digit-run-then-P-then-status-word shape is distinctive enough on
+# its own — it just also allows matching mid-digit-run.
+_MSG_START_RE = re.compile(
+    r"(?=[0-9]{3,4}P[0-9A-Z]{3,8}\s+(?:Imethibitishwa|Imepokelewa)\b)"
+    r"|(?=[A-Z0-9]{8,12}\s+Confirmed\b)"
+)
+
+
+def split_concatenated_messages(block: str) -> list[str]:
+    raw_positions = [m.start() for m in _MSG_START_RE.finditer(block)]
+    # The variable-length {3,4} digit run means a single true ref can also
+    # satisfy the pattern starting one character late (e.g. both "0821P44QH"
+    # and the substring "821P44QH" match independently), producing spurious
+    # candidates 1-2 characters after the real one. Collapse any cluster of
+    # candidates closer together than a real message ever is down to its
+    # leftmost (= most complete) position.
+    positions: list[int] = []
+    for pos in raw_positions:
+        if not positions or pos - positions[-1] > 20:
+            positions.append(pos)
+    if len(positions) <= 1:
+        return [block]
+    segments = []
+    for i, pos in enumerate(positions):
+        end = positions[i + 1] if i + 1 < len(positions) else len(block)
+        segment = block[pos:end].strip()
+        if segment:
+            segments.append(segment)
+    return segments
 
 
 def parse_message(text: str) -> list[Row]:
@@ -213,11 +385,33 @@ def main() -> None:
     args = ap.parse_args()
 
     raw = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
-    blocks = [b.strip() for b in re.split(r"\n\s*\n", raw) if b.strip()]
+    coarse_blocks = [b.strip() for b in re.split(r"\n\s*\n", raw) if b.strip()]
+    blocks: list[str] = []
+    for b in coarse_blocks:
+        blocks.extend(split_concatenated_messages(b))
 
+    # Selcom SW messages are deduped by ref before being added to all_rows;
+    # everything else is added immediately.
+    selcom_by_ref: dict[str, tuple[bool, list[Row]]] = {}
+    exact_seen: set[str] = set()
     all_rows: list[Row] = []
     unparsed = 0
+    duplicates = 0
+
     for block in blocks:
+        if block in exact_seen:
+            duplicates += 1
+            continue
+        exact_seen.add(block)
+
+        selcom = parse_selcom_sw(block)
+        if selcom:
+            ref, has_data, rows = selcom
+            existing = selcom_by_ref.get(ref)
+            if existing is None or (has_data and not existing[0]):
+                selcom_by_ref[ref] = (has_data, rows)
+            continue
+
         rows = parse_message(block)
         if rows:
             all_rows.extend(rows)
@@ -225,12 +419,17 @@ def main() -> None:
             unparsed += 1
             print(f"Could not parse message: {block[:80]!r}...", file=sys.stderr)
 
+    for _has_data, rows in selcom_by_ref.values():
+        all_rows.extend(rows)
+
     if not all_rows:
         print("No messages parsed.", file=sys.stderr)
         sys.exit(1)
 
     write_csv(all_rows, args.output)
     print(f"Parsed {len(all_rows)} row(s) from {len(blocks)} message(s) -> {args.output}")
+    if duplicates:
+        print(f"Skipped {duplicates} exact-duplicate message(s).")
     if unparsed:
         print(f"{unparsed} message(s) did not match any known format.")
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useDisplayLocale, useDateLocale } from '@/hooks/use-display-locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRegisterPageChatContext } from '@/lib/page-chat-context'
-import { assets, assetGroups, currencies as currenciesApi } from '@/lib/api'
+import { assets, assetGroups, currencies as currenciesApi, transactions as transactionsApi } from '@/lib/api'
 import { localDateString } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
-import type { Asset, AssetGroup, AssetTransaction, AssetValue, MarketSymbolMatch, MarketSymbolQuote } from '@/types'
+import type { Asset, AssetGroup, AssetTransaction, AssetValue, MarketSymbolMatch, MarketSymbolQuote, Transaction } from '@/types'
 import {
   Home,
   Car,
@@ -41,6 +41,7 @@ import {
   PieChart,
   AlertTriangle,
   Upload,
+  X,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -241,6 +242,11 @@ export default function AssetsPage() {
   const [formGrowthFrequency, setFormGrowthFrequency] = useState<string>('monthly')
   const [formGrowthStartDate, setFormGrowthStartDate] = useState<string>('')
   // Market-price form state
+  // Ticker-less market-priced holding (a unit trust fund, a private fund —
+  // anything with no public quote). Skips ticker search/quote entirely;
+  // units and price come from buy transactions and manual NAV updates
+  // added after creation, same as any other holding built up over time.
+  const [formNoTicker, setFormNoTicker] = useState(false)
   const [formTickerQuery, setFormTickerQuery] = useState('')
   const [tickerMatches, setTickerMatches] = useState<MarketSymbolMatch[]>([])
   const [tickerSearchLoading, setTickerSearchLoading] = useState(false)
@@ -501,7 +507,7 @@ export default function AssetsPage() {
   // selected and the query is non-trivial — keeps the autocomplete snappy
   // without flooding the yfinance-backed endpoint.
   useEffect(() => {
-    if (formMethod !== 'market_price') return
+    if (formMethod !== 'market_price' || formNoTicker) return
     const q = formTickerQuery.trim()
     // Don't search if the field matches the already-selected quote — the
     // user just picked it and we'd spam the endpoint for no reason.
@@ -522,7 +528,7 @@ export default function AssetsPage() {
       }
     }, 300)
     return () => window.clearTimeout(handle)
-  }, [formMethod, formTickerQuery, selectedQuote])
+  }, [formMethod, formNoTicker, formTickerQuery, selectedQuote])
 
   async function pickTickerMatch(match: MarketSymbolMatch) {
     setTickerMatches([])
@@ -558,6 +564,7 @@ export default function AssetsPage() {
   }
 
   function resetMarketPriceForm() {
+    setFormNoTicker(false)
     setFormTickerQuery('')
     setTickerMatches([])
     setSelectedQuote(null)
@@ -605,6 +612,9 @@ export default function AssetsPage() {
     setFormGrowthFrequency(asset.growth_frequency ?? 'monthly')
     setFormGrowthStartDate(asset.growth_start_date ?? '')
     resetMarketPriceForm()
+    if (asset.valuation_method === 'market_price' && !asset.ticker) {
+      setFormNoTicker(true)
+    }
     if (asset.valuation_method === 'market_price' && asset.ticker) {
       setFormTickerQuery(asset.ticker)
       setFormUnits(asset.units?.toString() ?? '')
@@ -648,7 +658,7 @@ export default function AssetsPage() {
       payload.growth_start_date = formGrowthStartDate || null
     }
 
-    if (isMarket) {
+    if (isMarket && !formNoTicker) {
       payload.ticker = (selectedQuote?.symbol || formTickerQuery || '').toUpperCase()
       payload.ticker_exchange = selectedQuote?.exchange ?? null
       payload.units = formUnits ? parseFloat(formUnits) : null
@@ -658,6 +668,9 @@ export default function AssetsPage() {
         payload.unit_price = formUnitPrice ? parseFloat(formUnitPrice) : null
       }
     }
+    // Ticker-less market-priced holding: no ticker, no opening buy at
+    // creation — units/price come from the buy/sell ledger and manual NAV
+    // updates afterward. `currency` above already carries the user's pick.
 
 
     if (!editingAsset && formCurrentValue) {
@@ -824,8 +837,13 @@ export default function AssetsPage() {
         {isExpanded && (
           isMarketPriced ? (
             <>
-              {/* Value-evolution chart on top, then the buy/sell ledger. */}
+              {/* Value-evolution chart on top, then (for ticker-less holdings
+                  like a unit trust fund) a manual NAV updater, then the
+                  buy/sell ledger. */}
               <AssetDetail assetId={asset.id} currency={asset.currency} locale={locale} dateLocale={dateLocale} purchasePrice={asset.purchase_price} purchaseDate={asset.purchase_date} valuationMethod={asset.valuation_method} canWrite={canWrite} chartOnly />
+              {!asset.ticker && (
+                <ManualPriceUpdater asset={asset} locale={locale} canWrite={canWrite} onChanged={refetchAssetViews} />
+              )}
               <HoldingLedger
                 asset={asset}
                 locale={locale}
@@ -1185,7 +1203,7 @@ export default function AssetsPage() {
                 <select
                   className="bg-card border border-border focus:outline-none focus:ring-2 focus:ring-primary px-3 py-2 rounded-lg text-foreground text-sm w-full disabled:opacity-60 disabled:cursor-not-allowed"
                   value={formCurrency}
-                  disabled={formMethod === 'market_price'}
+                  disabled={formMethod === 'market_price' && !formNoTicker}
                   onChange={e => setFormCurrency(e.target.value)}
                 >
                   {(supportedCurrencies ?? [{ code: userCurrency, symbol: userCurrency, name: userCurrency, flag: '' }]).map((c) => (
@@ -1221,9 +1239,25 @@ export default function AssetsPage() {
               </div>
             </div>
 
-            {/* Market Price (yfinance) — ticker search + quantity */}
+            {/* Market Price (yfinance) — ticker search + quantity, or the
+                ticker-less path for holdings Securo can't quote itself. */}
             {formMethod === 'market_price' && (
               <div className="space-y-3 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                {!editingAsset && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formNoTicker}
+                      onChange={(e) => setFormNoTicker(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    {t('assets.noTickerToggle')}
+                  </label>
+                )}
+                {formNoTicker ? (
+                  <p className="text-xs text-muted-foreground">{t('assets.noTickerHint')}</p>
+                ) : (
+                <>
                 <div className="space-y-2">
                   <Label>{t('assets.ticker')}</Label>
                   <div className="relative">
@@ -1378,6 +1412,8 @@ export default function AssetsPage() {
                 {quoteLoading && (
                   <div className="text-xs text-muted-foreground">{t('common.loading')}</div>
                 )}
+                </>
+                )}
               </div>
             )}
 
@@ -1505,9 +1541,12 @@ export default function AssetsPage() {
                 !formName
                 || createMutation.isPending
                 || updateMutation.isPending
-                // Market-price guard: must have a resolved ticker + quantity.
+                // Market-price guard: must have a resolved ticker + quantity
+                // — waived for the ticker-less path, which needs neither at
+                // creation (units/price come from the ledger afterward).
                 || (formMethod === 'market_price'
                   && !editingAsset
+                  && !formNoTicker
                   && (!selectedQuote || !formUnits || parseFloat(formUnits) <= 0))
               }
             >
@@ -2656,6 +2695,79 @@ function AssetTransactionsTab({
 // Inline buy/sell ledger shown when a holding row is expanded (the
 // "Lançamentos" of the reference). Lists the holding's transactions and
 // offers a one-tap add — the consolidated row above is recomputed server-side.
+/** NAV/price entry for a market-priced holding with no ticker (a unit trust
+ * fund, a private fund — anything Securo has no quote provider for). The
+ * refresh-price button only works for real tickers; this is the manual
+ * equivalent, shown instead whenever the asset has none. */
+function ManualPriceUpdater({
+  asset,
+  locale,
+  canWrite,
+  onChanged,
+}: {
+  asset: Asset
+  locale: string
+  canWrite: boolean
+  onChanged: () => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [price, setPrice] = useState('')
+  const [date, setDate] = useState(localDateString)
+
+  const mutation = useMutation({
+    mutationFn: () => assets.updateManualPrice(asset.id, { price: parseFloat(price), date }),
+    onSuccess: () => {
+      onChanged()
+      setOpen(false)
+      setPrice('')
+      toast.success(t('assets.priceUpdated'))
+    },
+    onError: (e) => toast.error(assetErrorMessage(e, t('common.error'))),
+  })
+
+  if (!canWrite) return null
+
+  return (
+    <div className="border-t border-border bg-muted/10 px-4 py-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          {t('assets.manualPriceTitle')}
+        </p>
+        {!open && (
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" onClick={() => setOpen(true)}>
+            <RefreshCw size={12} />
+            {t('assets.updatePrice')}
+          </Button>
+        )}
+      </div>
+      {asset.last_price != null ? (
+        <p className="text-xs text-muted-foreground">
+          {t('assets.currentNav', { price: formatCurrency(asset.last_price, asset.currency, locale) })}
+        </p>
+      ) : (
+        <p className="text-xs text-amber-600 dark:text-amber-400">{t('assets.noNavYet')}</p>
+      )}
+      {open && (
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">{t('assets.newNav')}</Label>
+            <Input type="number" step="any" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-32" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">{t('assets.date')}</Label>
+            <DatePickerInput value={date} onChange={setDate} />
+          </div>
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={!price || parseFloat(price) < 0 || mutation.isPending}>
+            {mutation.isPending ? t('common.loading') : t('common.save')}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HoldingLedger({
   asset,
   locale,
@@ -2721,6 +2833,9 @@ function HoldingLedger({
               <span className="text-[11px] text-muted-foreground tabular-nums flex-1">
                 {new Date(tx.date + 'T00:00:00').toLocaleDateString(dateLocale)} ·{' '}
                 {mask(`${tx.quantity}`)} × {mask(formatCurrency(tx.price, asset.currency, locale))}
+                {tx.transaction_description && (
+                  <span className="text-primary/70"> · {t('assets.linkedTo', { description: tx.transaction_description })}</span>
+                )}
               </span>
               <span className="text-xs font-semibold tabular-nums text-foreground">
                 {mask(formatCurrency(tx.quantity * tx.price, asset.currency, locale))}
@@ -2766,6 +2881,16 @@ function AddHoldingTransactionDialog({
   const [fee, setFee] = useState('')
   const [date, setDate] = useState(localDateString)
 
+  // Optional link to the bank transaction that moved the cash for this
+  // buy/sell. The linked transaction only tells us the total cash amount
+  // and date — never units or price — so linking auto-fills the date and
+  // (once quantity is known) derives price from amount/quantity, but the
+  // user still supplies quantity themselves.
+  const [linkedTx, setLinkedTx] = useState<Transaction | null>(null)
+  const [txSearchOpen, setTxSearchOpen] = useState(false)
+  const [txSearch, setTxSearch] = useState('')
+  const [txQuery, setTxQuery] = useState('')
+
   useEffect(() => {
     if (assetId) {
       setKind('buy')
@@ -2773,8 +2898,41 @@ function AddHoldingTransactionDialog({
       setPrice('')
       setFee('')
       setDate(localDateString())
+      setLinkedTx(null)
+      setTxSearchOpen(false)
+      setTxSearch('')
     }
   }, [assetId])
+
+  useEffect(() => {
+    const id = setTimeout(() => setTxQuery(txSearch), 300)
+    return () => clearTimeout(id)
+  }, [txSearch])
+
+  const { data: txOptions } = useQuery({
+    queryKey: ['asset-tx-link-options', txQuery],
+    queryFn: () => transactionsApi.list({ q: txQuery || undefined, limit: 20 }),
+    enabled: txSearchOpen,
+  })
+
+  function pickTx(tx: Transaction) {
+    setLinkedTx(tx)
+    setTxSearchOpen(false)
+    setDate(tx.date)
+    // Derive price from the linked amount once quantity is already typed;
+    // otherwise leave price for the user, and the quantity-change effect
+    // below fills it in as soon as they do.
+    const q = parseFloat(quantity)
+    if (q > 0) setPrice((Math.abs(Number(tx.amount)) / q).toFixed(6))
+  }
+
+  // Keep price in sync with quantity while a transaction is linked, so
+  // typing units after picking the transaction still auto-fills price.
+  useEffect(() => {
+    if (!linkedTx) return
+    const q = parseFloat(quantity)
+    if (q > 0) setPrice((Math.abs(Number(linkedTx.amount)) / q).toFixed(6))
+  }, [quantity, linkedTx])
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -2784,6 +2942,7 @@ function AddHoldingTransactionDialog({
         price: parseFloat(price),
         fee: fee ? parseFloat(fee) : 0,
         date,
+        transaction_id: linkedTx?.id,
       }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ['asset-transactions'] })
@@ -2824,6 +2983,61 @@ function AddHoldingTransactionDialog({
               ))}
             </div>
           </div>
+          <div className="space-y-2">
+            <Label>{t('assets.linkTransaction')}</Label>
+            {linkedTx ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                <span className="min-w-0 truncate">
+                  <span className="text-muted-foreground">{linkedTx.date}</span> · {linkedTx.description} ·{' '}
+                  <span className="font-medium">{linkedTx.amount} {linkedTx.currency}</span>
+                </span>
+                <button type="button" className="shrink-0 text-muted-foreground hover:text-rose-500" onClick={() => setLinkedTx(null)}>
+                  <X size={13} />
+                </button>
+              </div>
+            ) : txSearchOpen ? (
+              <div className="space-y-1.5">
+                <Input
+                  type="text"
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                  placeholder={t('assets.searchTransaction')}
+                  autoFocus
+                />
+                <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                  {(txOptions?.items ?? []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-4 text-center">{t('assets.noMatchingTransactions')}</p>
+                  ) : (
+                    (txOptions?.items ?? []).map((tx) => (
+                      <button
+                        key={tx.id}
+                        type="button"
+                        onClick={() => pickTx(tx)}
+                        className="w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-3 hover:bg-muted/50"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="text-muted-foreground">{tx.date}</span> · {tx.description}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">{tx.amount} {tx.currency}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setTxSearchOpen(false)}>
+                  {t('common.cancel')}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setTxSearchOpen(true)}
+                className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+              >
+                <Plus size={12} /> {t('assets.linkTransactionCta')}
+              </button>
+            )}
+            <p className="text-[10px] text-muted-foreground">{t('assets.linkTransactionHint')}</p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('assets.quantity')}</Label>
@@ -2841,7 +3055,7 @@ function AddHoldingTransactionDialog({
             </div>
             <div className="space-y-2">
               <Label>{t('assets.date')}</Label>
-              <DatePickerInput value={date} onChange={setDate} />
+              <DatePickerInput value={date} onChange={setDate} disabled={!!linkedTx} />
             </div>
           </div>
           {oversell && (

@@ -111,6 +111,11 @@ class AssetTransactionCreate(BaseModel):
     fee: Decimal = Decimal("0")
     date: _date
     notes: Optional[str] = None
+    # Link to an existing bank/wallet transaction that moved the cash for
+    # this buy/sell. Excludes that transaction from income/expense totals
+    # (same mechanism as loan repayments) since it's a one-sided investment
+    # movement, not real P&L.
+    transaction_id: Optional[uuid.UUID] = None
 
 
 class AssetTransactionUpdate(BaseModel):
@@ -120,6 +125,7 @@ class AssetTransactionUpdate(BaseModel):
     fee: Optional[Decimal] = None
     date: Optional[_date] = None
     notes: Optional[str] = None
+    transaction_id: Optional[uuid.UUID] = None
 
 
 class AssetBuyCreate(BaseModel):
@@ -151,8 +157,19 @@ class AssetTransactionRead(BaseModel):
     ticker: Optional[str] = None
     currency: Optional[str] = None
     logo_url: Optional[str] = None
+    transaction_id: Optional[uuid.UUID] = None
+    # Denormalized so the UI can show what it's linked to without a
+    # separate lookup per row.
+    transaction_description: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AssetManualPriceUpdate(BaseModel):
+    """Manual NAV/price update for a market-priced asset with no ticker
+    (e.g. a unit trust fund Securo can't look up on Yahoo Finance)."""
+    price: Decimal
+    date: Optional[_date] = None
 
 
 class MarketSymbolQuote(BaseModel):

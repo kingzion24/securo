@@ -21,7 +21,11 @@ router = APIRouter(prefix="/api/transactions", tags=["import"])
 
 @router.post("/import/preview", response_model=TransactionImportPreview)
 async def preview_import(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    # Pasted M-Pesa/Selcom/TCB SMS or receipt text, as an alternative to a
+    # file upload — there's no bank-sync provider for Tanzanian mobile
+    # money, so this is the only path for those transactions.
+    text: Optional[str] = Form(None),
     date_format: Optional[str] = Form(None),
     flip_amount: bool = Form(False),
     inflow_column: Optional[str] = Form(None),
@@ -38,6 +42,25 @@ async def preview_import(
     ctx: WorkspaceContext = Depends(current_workspace),
     session: AsyncSession = Depends(get_async_session),
 ):
+    if text and text.strip():
+        transactions, warnings = import_service.parse_tz_messages(text)
+        transactions = await import_service.enrich_with_category_suggestions(
+            session, ctx.workspace.id, transactions,
+        )
+        return TransactionImportPreview(
+            transactions=transactions,
+            detected_format="tz_messages",
+            csv_columns=[],
+            parse_error=None,
+            warnings=warnings,
+        )
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either a file or pasted message text is required",
+        )
+
     content = await file.read()
     filename = file.filename or ""
 

@@ -126,7 +126,8 @@
     "groupAdmin": "Administración",
     "groupAgents": "IA",
     "agents": "Agentes",
-    "aiAgents": "Agentes IA"
+    "aiAgents": "Agentes IA",
+    "loans": "Loans"
   },
   "invoices": {
     "title": "Facturas",
@@ -1081,7 +1082,14 @@
     "page": "Página {{current}} de {{total}}",
     "mapPayee": "Columna de beneficiario",
     "mapExternalId": "Columna de ID de transacción",
-    "mapNotes": "Columna de notas"
+    "mapNotes": "Columna de notas",
+    "modeFile": "Upload file",
+    "modePaste": "Paste message",
+    "pasteHint": "Paste one or more M-Pesa, Selcom, or TCB SMS/receipt messages. Multiple messages can be pasted together, with or without blank lines between them.",
+    "pastePlaceholder": "Paste transaction message(s) here…",
+    "parseMessages": "Parse messages",
+    "pastedMessages": "Pasted messages",
+    "clearMessages": "Clear"
   },
   "assetImport": {
     "title": "Importar órdenes de inversión",
@@ -1271,7 +1279,21 @@
     "total": "Total",
     "confirmRegenerateTitle": "¿Regenerar valores?",
     "confirmRegenerate": "Los parámetros de crecimiento cambiaron. Todos los valores generados automáticamente se eliminarán y recalcularán. Se conservarán los valores manuales.",
-    "regenerate": "Regenerar"
+    "regenerate": "Regenerar",
+    "linkTransaction": "Link to transaction (optional)",
+    "linkTransactionCta": "Link a bank transaction",
+    "linkTransactionHint": "Linking fills in the date and excludes that transaction from your income/expense reports — you still enter quantity and price yourself.",
+    "searchTransaction": "Search transactions...",
+    "noMatchingTransactions": "No matching transactions",
+    "linkedTo": "linked to \"{{description}}\"",
+    "manualPriceTitle": "Manual NAV",
+    "updatePrice": "Update NAV",
+    "currentNav": "Current NAV: {{price}}",
+    "noNavYet": "No NAV recorded yet — current value falls back to cost basis.",
+    "newNav": "New NAV",
+    "priceUpdated": "Price updated",
+    "noTickerToggle": "No public ticker (e.g. a unit trust or private fund)",
+    "noTickerHint": "Create the holding now, then add purchases and NAV updates from the asset's own page — no live quote is required."
   },
   "reports": {
     "section": "Analítica",
@@ -1963,5 +1985,49 @@
         "openai": "OpenAI Responses API"
       }
     }
+  },
+  "loans": {
+    "title": "Loans",
+    "add": "Add Loan",
+    "edit": "Edit Loan",
+    "person": "Person",
+    "linkPayee": "Link to payee (optional)",
+    "noPayeeLink": "No linked payee",
+    "direction": "Direction",
+    "directionTheyOweMe": "They owe me",
+    "directionIOweThem": "I owe them",
+    "principalAmount": "Principal amount",
+    "currency": "Currency",
+    "date": "Date",
+    "note": "Note",
+    "notePlaceholder": "What's this for?",
+    "statusOpen": "Open",
+    "statusSettled": "Settled",
+    "statusArchived": "Archived",
+    "markSettled": "Mark settled",
+    "archive": "Archive",
+    "reopen": "Reopen",
+    "empty": "No loans yet. Track money you've lent or borrowed here.",
+    "created": "Loan created",
+    "updated": "Loan updated",
+    "deleted": "Loan deleted",
+    "confirmDeleteTitle": "Delete loan?",
+    "confirmDeleteDesc": "The loan with \"{{name}}\" and all its repayment records will be permanently deleted. This action is irreversible.",
+    "remaining": "Remaining",
+    "repayments": "{{count}} repayment",
+    "repayments_other": "{{count}} repayments",
+    "noRepaymentsYet": "No repayments recorded yet.",
+    "addRepayment": "Add repayment",
+    "repaymentAdded": "Repayment added",
+    "repaymentDeleted": "Repayment removed",
+    "repaymentSource": "Repayment source",
+    "repaymentManual": "Manual entry",
+    "repaymentLinkTransaction": "Link an existing transaction",
+    "amount": "Amount",
+    "searchTransaction": "Search transactions...",
+    "noTransactions": "No matching transactions",
+    "linkedTransaction": "linked to a transaction",
+    "totalOwedToMe": "Owed to you",
+    "totalIOwe": "You owe"
   }
 }
