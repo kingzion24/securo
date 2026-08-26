@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -473,7 +474,7 @@ export default function CategoriesPage() {
             </div>
             <div className="space-y-2">
               <Label>{t('groups.position')}</Label>
-              <Input name="position" type="number" defaultValue={editingGroup?.position?.toString() ?? '0'} />
+              <NumberInput name="position" allowDecimals={false} defaultValue={editingGroup?.position?.toString() ?? '0'} />
             </div>
             <div className="space-y-2">
               <Label>{t('groups.color')}</Label>

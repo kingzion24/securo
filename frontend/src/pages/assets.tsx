@@ -8,6 +8,7 @@ import { localDateString } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -1364,23 +1365,17 @@ export default function AssetsPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label>{t('assets.quantity')}</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="0"
+                      <NumberInput
                         value={formUnits}
-                        onChange={e => setFormUnits(e.target.value)}
+                        onChange={setFormUnits}
                         placeholder="10"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>{t('assets.unitPrice')}</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="0"
+                      <NumberInput
                         value={formUnitPrice}
-                        onChange={e => setFormUnitPrice(e.target.value)}
+                        onChange={setFormUnitPrice}
                         placeholder={selectedQuote ? String(selectedQuote.price) : '0.00'}
                       />
                     </div>
@@ -1388,7 +1383,7 @@ export default function AssetsPage() {
                 ) : (
                   <div className="space-y-2">
                     <Label>{t('assets.quantity')}</Label>
-                    <Input type="number" step="any" min="0" value={formUnits} onChange={e => setFormUnits(e.target.value)} placeholder="10" />
+                    <NumberInput value={formUnits} onChange={setFormUnits} placeholder="10" />
                   </div>
                 )}
 
@@ -1437,7 +1432,7 @@ export default function AssetsPage() {
                   <div className="space-y-2">
                     <Label>{t('assets.growthRate')}</Label>
                     <div className="relative">
-                      <Input type="number" step="any" value={formGrowthRate} onChange={e => setFormGrowthRate(e.target.value)} className={formGrowthType === 'percentage' ? 'pr-8' : ''} />
+                      <NumberInput value={formGrowthRate} onChange={setFormGrowthRate} className={formGrowthType === 'percentage' ? 'pr-8' : ''} />
                       {formGrowthType === 'percentage' && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                       )}
@@ -1476,7 +1471,7 @@ export default function AssetsPage() {
               {formMethod !== 'market_price' && (
                 <div className="space-y-2">
                   <Label>{t('assets.purchasePrice')}</Label>
-                  <Input type="number" step="0.01" value={formPurchasePrice} onChange={e => setFormPurchasePrice(e.target.value)} />
+                  <NumberInput value={formPurchasePrice} onChange={setFormPurchasePrice} />
                 </div>
               )}
             </div>
@@ -1491,7 +1486,7 @@ export default function AssetsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>{t('assets.sellPrice')}</Label>
-                  <Input type="number" step="0.01" value={formSellPrice} onChange={e => setFormSellPrice(e.target.value)} />
+                  <NumberInput value={formSellPrice} onChange={setFormSellPrice} />
                 </div>
               </div>
             )}
@@ -1500,11 +1495,9 @@ export default function AssetsPage() {
             {!editingAsset && formMethod === 'manual' && (
               <div className="space-y-2">
                 <Label>{t('assets.currentValue')}</Label>
-                <Input
-                  type="number"
-                  step="any"
+                <NumberInput
                   value={formCurrentValue}
-                  onChange={e => setFormCurrentValue(e.target.value)}
+                  onChange={setFormCurrentValue}
                 />
               </div>
             )}
@@ -2195,11 +2188,9 @@ function AssetDetail({ assetId, currency, locale: loc, dateLocale: dateLoc, purc
       {!chartOnly && valuationMethod === 'manual' && canWrite && <div className="flex items-end gap-2">
         <div className="flex-1">
           <Label className="text-[11px] text-muted-foreground">{t('assets.amount')}</Label>
-          <Input
-            type="number"
-            step="any"
+          <NumberInput
             value={valueAmount}
-            onChange={e => setValueAmount(e.target.value)}
+            onChange={setValueAmount}
             placeholder="0.00"
             className="h-8 text-sm"
           />
@@ -2628,18 +2619,18 @@ function AssetTransactionsTab({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('assets.quantity')}</Label>
-                <Input type="number" step="any" min="0" value={formQuantity} onChange={(e) => setFormQuantity(e.target.value)} />
+                <NumberInput value={formQuantity} onChange={setFormQuantity} />
               </div>
               <div className="space-y-2">
                 <Label>{t('assets.unitPrice')}</Label>
-                <Input type="number" step="any" min="0" value={formPrice} onChange={(e) => setFormPrice(e.target.value)} />
+                <NumberInput value={formPrice} onChange={setFormPrice} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('assets.fee')}</Label>
-                <Input type="number" step="any" min="0" value={formFee} onChange={(e) => setFormFee(e.target.value)} placeholder="0" />
+                <NumberInput value={formFee} onChange={setFormFee} placeholder="0" />
               </div>
               <div className="space-y-2">
                 <Label>{t('assets.date')}</Label>
@@ -2752,7 +2743,7 @@ function ManualPriceUpdater({
         <div className="flex items-end gap-2">
           <div className="space-y-1">
             <Label className="text-xs">{t('assets.newNav')}</Label>
-            <Input type="number" step="any" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-32" />
+            <NumberInput value={price} onChange={setPrice} className="w-32" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">{t('assets.date')}</Label>
@@ -3041,17 +3032,17 @@ function AddHoldingTransactionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('assets.quantity')}</Label>
-              <Input type="number" step="any" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <NumberInput value={quantity} onChange={setQuantity} />
             </div>
             <div className="space-y-2">
               <Label>{t('assets.unitPrice')}</Label>
-              <Input type="number" step="any" min="0" value={price} onChange={(e) => setPrice(e.target.value)} />
+              <NumberInput value={price} onChange={setPrice} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('assets.fee')}</Label>
-              <Input type="number" step="any" min="0" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="0" />
+              <NumberInput value={fee} onChange={setFee} placeholder="0" />
             </div>
             <div className="space-y-2">
               <Label>{t('assets.date')}</Label>

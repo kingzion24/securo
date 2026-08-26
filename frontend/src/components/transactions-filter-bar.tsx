@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
+import { NumberInput } from '@/components/ui/number-input'
 import { cn } from '@/lib/utils'
 import { localDateString } from '@/lib/date-utils'
 import { resolveDateFnsLocale } from '@/lib/date-fns-locale'
@@ -922,14 +923,11 @@ export function TransactionsFilterBar({
                           <label className="block px-1 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                             {t('transactions.filtersBar.amountMinLabel')}
                           </label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
+                          <NumberInput
                             min={0}
-                            step="0.01"
                             placeholder="0.00"
                             value={draftMinAmount}
-                            onChange={(e) => setDraftMinAmount(e.target.value)}
+                            onChange={setDraftMinAmount}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault()
@@ -943,14 +941,11 @@ export function TransactionsFilterBar({
                           <label className="block px-1 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                             {t('transactions.filtersBar.amountMaxLabel')}
                           </label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
+                          <NumberInput
                             min={0}
-                            step="0.01"
                             placeholder="0.00"
                             value={draftMaxAmount}
-                            onChange={(e) => setDraftMaxAmount(e.target.value)}
+                            onChange={setDraftMaxAmount}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault()

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { localDateString } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import {
@@ -159,12 +160,10 @@ export function TransferDialog({
                 {t('transactions.transferAmount')}
                 {fromAccount && <span className="text-muted-foreground ml-1">({fromAccount.currency})</span>}
               </Label>
-              <Input
-                type="number"
-                step="0.01"
+              <NumberInput
                 min="0.01"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={setAmount}
                 required
               />
             </div>
@@ -183,12 +182,10 @@ export function TransferDialog({
               <Label className="text-xs">
                 {t('transactions.convertedAmount', { currency: toAccount?.currency })}
               </Label>
-              <Input
-                type="number"
-                step="0.01"
+              <NumberInput
                 min="0.01"
                 value={destinationAmount}
-                onChange={(e) => setDestinationAmount(e.target.value)}
+                onChange={setDestinationAmount}
                 placeholder={t('transactions.autoCalculated')}
               />
             </div>

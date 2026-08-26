@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import type { GroupKind } from '@/types'
 import { GroupForm } from '@/components/group-form'
@@ -384,12 +385,10 @@ function BulkAddToGroupForm({
                       </span>
                       {shareType === 'percent' && row.selected && (
                         <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            step="0.01"
+                          <NumberInput
                             className="w-20 h-8 text-sm"
                             value={row.percent}
-                            onChange={(e) => updateRow(m.id, { percent: e.target.value })}
+                            onChange={(v) => updateRow(m.id, { percent: v })}
                           />
                           <span className="text-xs text-muted-foreground">%</span>
                         </div>

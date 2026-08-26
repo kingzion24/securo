@@ -49,7 +49,10 @@ async def preview_import(
         )
         return TransactionImportPreview(
             transactions=transactions,
-            detected_format="tz_messages",
+            # Must fit ImportLog.format's VARCHAR(10) — "tz_messages" (11
+            # chars) overflowed it and broke the actual import step even
+            # though the preview worked fine.
+            detected_format="message",
             csv_columns=[],
             parse_error=None,
             warnings=warnings,

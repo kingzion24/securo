@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -223,14 +224,12 @@ export function AgentFormDialog({ open, onOpenChange, agent }: Props) {
           )}
           <div className="grid gap-2 max-w-[160px]">
             <Label htmlFor="agent-temp">{t('agents.form.temperature')}</Label>
-            <Input
+            <NumberInput
               id="agent-temp"
-              type="number"
-              step="0.05"
               min="0"
               max="2"
               value={temperature}
-              onChange={(e) => setTemperature(e.target.value)}
+              onChange={setTemperature}
             />
           </div>
           <div className="rounded-md border p-3 flex items-start gap-3">

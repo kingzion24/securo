@@ -9,6 +9,7 @@ import { groups as groupsApi, type GroupCreatePayload } from '@/lib/api'
 import { formatCurrency } from '@/lib/format'
 import type { Group, GroupKind, ShareType, TransactionSplitsInput } from '@/types'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { GroupForm } from '@/components/group-form'
@@ -443,22 +444,18 @@ export function TransactionSplitsSection({
                               </span>
                             )}
                             {shareType === 'exact' && row.selected && (
-                              <Input
-                                type="number"
-                                step="0.01"
+                              <NumberInput
                                 className="w-24 h-8 text-sm"
                                 value={row.amount}
-                                onChange={(e) => updateRow(m.id, { amount: e.target.value })}
+                                onChange={(v) => updateRow(m.id, { amount: v })}
                               />
                             )}
                             {shareType === 'percent' && row.selected && (
                               <div className="flex items-center gap-1">
-                                <Input
-                                  type="number"
-                                  step="0.01"
+                                <NumberInput
                                   className="w-20 h-8 text-sm"
                                   value={row.percent}
-                                  onChange={(e) => updateRow(m.id, { percent: e.target.value })}
+                                  onChange={(v) => updateRow(m.id, { percent: v })}
                                 />
                                 <span className="text-xs text-muted-foreground">%</span>
                               </div>

@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DatePickerInput } from '@/components/ui/date-picker-input'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -473,10 +474,8 @@ export default function GoalsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('goals.targetAmount')}</Label>
-                <Input
+                <NumberInput
                   name="target_amount"
-                  type="number"
-                  step="0.01"
                   defaultValue={editing?.target_amount?.toString() ?? ''}
                   required
                 />
@@ -525,10 +524,8 @@ export default function GoalsPage() {
             {trackingType === 'manual' && (
               <div className="space-y-2">
                 <Label>{t('goals.currentAmount')}</Label>
-                <Input
+                <NumberInput
                   name="current_amount"
-                  type="number"
-                  step="0.01"
                   defaultValue={editing?.tracking_type === 'manual' ? editing?.current_amount?.toString() : '0'}
                 />
               </div>

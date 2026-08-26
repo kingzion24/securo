@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -315,10 +316,8 @@ export default function BudgetsPage() {
             )}
             <div className="space-y-2">
               <Label>{t('budgets.amount')}</Label>
-              <Input
+              <NumberInput
                 name="amount"
-                type="number"
-                step="0.01"
                 defaultValue={editing?.amount?.toString() ?? ''}
                 required
               />
