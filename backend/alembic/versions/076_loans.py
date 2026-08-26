@@ -1,7 +1,7 @@
 """create loans and loan_repayments tables
 
-Revision ID: 075
-Revises: 074
+Revision ID: 076
+Revises: 075
 Create Date: 2026-08-26
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "075"
-down_revision: Union[str, None] = "074"
+revision: str = "076"
+down_revision: Union[str, None] = "075"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
