@@ -59,10 +59,29 @@ async def create_user(email: str, password: str) -> None:
         print(f"User created successfully: {email}")
 
 
+async def reset_password(email: str, password: str) -> None:
+    """Set a new password for an existing user (local accounts only)."""
+    from pwdlib import PasswordHash
+
+    hasher = PasswordHash.recommended()
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if not user:
+            print(f"Error: No user with email '{email}'.")
+            sys.exit(1)
+
+        user.hashed_password = hasher.hash(password)
+        await session.commit()
+        print(f"Password reset for: {email}")
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python -m app.cli create-user <email> <password>")
+        print("  python -m app.cli reset-password <email> <new-password>")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -73,11 +92,17 @@ def main() -> None:
             sys.exit(1)
         email, password = sys.argv[2], sys.argv[3]
         asyncio.run(create_user(email, password))
+    elif command == "reset-password":
+        if len(sys.argv) != 4:
+            print("Usage: python -m app.cli reset-password <email> <new-password>")
+            sys.exit(1)
+        email, password = sys.argv[2], sys.argv[3]
+        asyncio.run(reset_password(email, password))
     elif command == "generate-recurring":
         asyncio.run(generate_recurring())
     else:
         print(f"Unknown command: {command}")
-        print("Available commands: create-user, generate-recurring")
+        print("Available commands: create-user, reset-password, generate-recurring")
         sys.exit(1)
 
 

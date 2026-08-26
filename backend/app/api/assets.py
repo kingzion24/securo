@@ -27,6 +27,7 @@ from app.schemas.asset_import import (
 from app.schemas.asset import (
     AssetBuyCreate,
     AssetCreate,
+    AssetManualPriceUpdate,
     AssetRead,
     AssetTransactionCreate,
     AssetTransactionRead,
@@ -169,6 +170,41 @@ async def refresh_asset_price(
             )
             refreshed.gain_loss_primary = float(gl_converted)
     return refreshed
+
+
+@router.post("/{asset_id}/manual-price", response_model=AssetRead)
+async def update_asset_manual_price(
+    asset_id: uuid.UUID,
+    data: AssetManualPriceUpdate,
+    ctx: WorkspaceContext = Depends(current_writable_workspace),
+    session: AsyncSession = Depends(get_async_session),
+) -> AssetRead:
+    """Hand-entered NAV/price for a market-priced holding with no ticker —
+    a unit trust fund, a private fund, anything Securo has no quote for.
+
+    Same effect as `/refresh-price`, just fed by the user instead of a
+    market data provider: updates `last_price`/`last_price_at` and upserts
+    the AssetValue for the given date (today if omitted).
+    """
+    try:
+        updated = await asset_service.update_manual_price(session, asset_id, ctx.workspace.id, data)
+    except HTTPException:
+        raise
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    primary_currency = ctx.user.primary_currency
+    if updated.currency != primary_currency and updated.current_value is not None:
+        converted, _ = await convert(
+            session, Decimal(str(updated.current_value)), updated.currency, primary_currency,
+        )
+        updated.current_value_primary = float(converted)
+        if updated.gain_loss is not None:
+            gl_converted, _ = await convert(
+                session, Decimal(str(updated.gain_loss)), updated.currency, primary_currency,
+            )
+            updated.gain_loss_primary = float(gl_converted)
+    return updated
 
 
 @router.get("", response_model=list[AssetRead])

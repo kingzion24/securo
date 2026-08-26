@@ -270,6 +270,10 @@ class TransactionImportPreview(BaseModel):
     # Set when a CSV's columns could not be auto-detected. The preview still
     # succeeds (with no transactions) so the UI can show the mapping dropdowns.
     parse_error: Optional[str] = None
+    # Non-blocking notices (missing dates defaulted, likely duplicates,
+    # unparsed messages) surfaced by parsers that can't be as strict as a
+    # rigid file format — currently only the pasted-message import path.
+    warnings: list[str] = []
 
 
 class TransactionImportRequest(BaseModel):

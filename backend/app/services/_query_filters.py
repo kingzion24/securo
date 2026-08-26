@@ -12,7 +12,9 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
+from app.models.asset_transaction import AssetTransaction
 from app.models.category import Category
+from app.models.loan_repayment import LoanRepayment
 from app.models.transaction import Transaction
 
 
@@ -127,7 +129,16 @@ def counts_as_pnl():
         movements like investment applications where the counterpart is
         an Asset/Holding, not another Account),
       - transactions flagged `is_ignored=True` (user-marked as not to be reported),
-      - transactions in categories flagged `is_ignored=True` (user-marked as not to be reported).
+      - transactions in categories flagged `is_ignored=True` (user-marked as not to be reported),
+      - transactions linked to a Loan repayment, in either direction: the
+        cash was never real income (receiving it back) or a real expense
+        (paying it back) in the first place, unlike a group settlement's
+        share-only over-recording. Both legs are dropped, unlike the
+        settlement carve-out below.
+      - transactions linked to an Asset buy/sell (funding a purchase, or
+        receiving sale proceeds) — a one-sided investment movement, same
+        rationale as the "Investments" `treat_as_transfer` category, just
+        reached by an explicit link instead of manual categorization.
 
     Does NOT exclude `source='opening_balance'` — callers that already
     filter those keep doing so; this helper only handles the transfer-like
@@ -143,6 +154,12 @@ def counts_as_pnl():
         # over-recorded expense from when the receiver paid the full
         # parent transaction. So we keep credits, drop debits.
         ~and_(Transaction.source == "settlement", Transaction.type == "debit"),
+        Transaction.id.not_in(
+            select(LoanRepayment.transaction_id).where(LoanRepayment.transaction_id.is_not(None))
+        ),
+        Transaction.id.not_in(
+            select(AssetTransaction.transaction_id).where(AssetTransaction.transaction_id.is_not(None))
+        ),
         or_(
             Transaction.category_id.is_(None),
             Transaction.category_id.not_in(

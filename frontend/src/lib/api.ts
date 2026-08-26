@@ -47,6 +47,8 @@ import type {
   Attachment,
   Goal,
   GoalSummary,
+  Loan,
+  LoanSummary,
   DashboardSummary,
   SpendingByCategory,
   MonthlyTrend,
@@ -624,7 +626,7 @@ export const transactions = {
     inflow_column?: string
     outflow_column?: string
     column_mapping?: Record<string, string>
-  }): Promise<{ transactions: ImportPreviewTransaction[]; detected_format: string; csv_columns?: string[]; parse_error?: string | null }> => {
+  }): Promise<{ transactions: ImportPreviewTransaction[]; detected_format: string; csv_columns?: string[]; parse_error?: string | null; warnings?: string[] }> => {
     const formData = new FormData()
     formData.append('file', file)
     if (options?.date_format) formData.append('date_format', options.date_format)
@@ -634,6 +636,15 @@ export const transactions = {
     if (options?.column_mapping && Object.keys(options.column_mapping).length > 0) {
       formData.append('column_mapping', JSON.stringify(options.column_mapping))
     }
+    const { data } = await api.post('/transactions/import/preview', formData)
+    return data
+  },
+  // Pasted M-Pesa/Selcom/TCB SMS or receipt text — no bank-sync provider
+  // covers Tanzanian mobile money, so this is a paste-in alternative to a
+  // file upload that reuses the same preview/review/import flow.
+  previewImportText: async (text: string): Promise<{ transactions: ImportPreviewTransaction[]; detected_format: string; csv_columns?: string[]; parse_error?: string | null; warnings?: string[] }> => {
+    const formData = new FormData()
+    formData.append('text', text)
     const { data } = await api.post('/transactions/import/preview', formData)
     return data
   },
@@ -1036,6 +1047,43 @@ export const goals = {
   },
 }
 
+export const loans = {
+  list: async (direction?: string, status?: string): Promise<Loan[]> => {
+    const { data } = await api.get('/loans', { params: { direction, status } })
+    return data
+  },
+  get: async (id: string): Promise<Loan> => {
+    const { data } = await api.get(`/loans/${id}`)
+    return data
+  },
+  create: async (loan: Partial<Loan>): Promise<Loan> => {
+    const { data } = await api.post('/loans', loan)
+    return data
+  },
+  update: async (id: string, loan: Partial<Loan>): Promise<Loan> => {
+    const { data } = await api.patch(`/loans/${id}`, loan)
+    return data
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/loans/${id}`)
+  },
+  summary: async (): Promise<LoanSummary> => {
+    const { data } = await api.get('/loans/summary')
+    return data
+  },
+  addRepayment: async (
+    loanId: string,
+    repayment: { amount: number; date: string; note?: string; transaction_id?: string },
+  ): Promise<Loan> => {
+    const { data } = await api.post(`/loans/${loanId}/repayments`, repayment)
+    return data
+  },
+  deleteRepayment: async (loanId: string, repaymentId: string): Promise<Loan> => {
+    const { data } = await api.delete(`/loans/${loanId}/repayments/${repaymentId}`)
+    return data
+  },
+}
+
 // Dashboard
 // Repeated `account_ids=a&account_ids=b` (no [] brackets) so FastAPI's
 // list[UUID] query param parses them. Only attached when a filter is active.
@@ -1143,14 +1191,14 @@ export const assets = {
   },
   addTransaction: async (
     id: string,
-    tx: { kind: 'buy' | 'sell'; quantity: number; price: number; fee?: number; date: string; notes?: string },
+    tx: { kind: 'buy' | 'sell'; quantity: number; price: number; fee?: number; date: string; notes?: string; transaction_id?: string },
   ): Promise<Asset> => {
     const { data } = await api.post(`/assets/${id}/transactions`, tx)
     return data
   },
   updateTransaction: async (
     txId: string,
-    tx: Partial<{ kind: 'buy' | 'sell'; quantity: number; price: number; fee: number; date: string; notes: string }>,
+    tx: Partial<{ kind: 'buy' | 'sell'; quantity: number; price: number; fee: number; date: string; notes: string; transaction_id: string | null }>,
   ): Promise<Asset> => {
     const { data } = await api.patch(`/assets/transactions/${txId}`, tx)
     return data
@@ -1158,6 +1206,10 @@ export const assets = {
   deleteTransaction: async (txId: string): Promise<Asset> => {
     const { data } = await api.delete(`/assets/transactions/${txId}`)
     return data
+  },
+  updateManualPrice: async (id: string, data: { price: number; date?: string }): Promise<Asset> => {
+    const { data: res } = await api.post(`/assets/${id}/manual-price`, data)
+    return res
   },
   buy: async (
     tx: { ticker: string; quantity: number; price: number; fee?: number; date: string; name?: string; group_id?: string | null; notes?: string },

@@ -795,6 +795,8 @@ export interface AssetTransaction {
   ticker: string | null
   currency: string | null
   logo_url: string | null
+  transaction_id: string | null
+  transaction_description: string | null
 }
 
 export interface MarketSymbolMatch {
@@ -878,6 +880,43 @@ export interface GoalSummary {
   percentage: number
   monthly_contribution: number | null
   on_track: string | null
+}
+
+export interface LoanRepayment {
+  id: string
+  loan_id: string
+  amount: number
+  date: string
+  note: string | null
+  transaction_id: string | null
+  created_at: string
+}
+
+export interface Loan {
+  id: string
+  user_id: string
+  person_name: string
+  payee_id: string | null
+  payee_name: string | null
+  direction: 'they_owe_me' | 'i_owe_them'
+  principal_amount: number
+  currency: string
+  date: string
+  note: string | null
+  status: 'open' | 'settled' | 'archived'
+  created_at: string
+  updated_at: string
+  repaid_amount: number
+  remaining_amount: number
+  percentage: number
+  repayments: LoanRepayment[]
+}
+
+export interface LoanSummary {
+  total_owed_to_me: number
+  total_i_owe: number
+  currency: string
+  open_count: number
 }
 
 export interface PaginatedResponse<T> {

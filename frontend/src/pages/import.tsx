@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import type { ImportPreviewTransaction, ImportReviewTransaction } from '@/types'
-import { Upload, FileText, X, CheckCircle2, AlertCircle, Settings2, Download } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle2, AlertCircle, Settings2, Download, MessageSquareText } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { AssetImportPanel } from '@/components/asset-import-panel'
 import { ImportSummaryBar } from '@/components/import-summary-bar'
@@ -58,13 +58,19 @@ function TransactionImportPanel() {
   const dateLocale = useDateLocale()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [previewData, setPreviewData] = useState<{ transactions: ImportPreviewTransaction[]; detected_format: string; csv_columns?: string[]; parse_error?: string | null } | null>(null)
+  const [previewData, setPreviewData] = useState<{ transactions: ImportPreviewTransaction[]; detected_format: string; csv_columns?: string[]; parse_error?: string | null; warnings?: string[] } | null>(null)
   const [reviewTransactions, setReviewTransactions] = useState<ImportReviewTransaction[]>([])
   const [selectedAccount, setSelectedAccount] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const [currentFile, setCurrentFile] = useState<File | null>(null)
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
+
+  // Paste-in mode: M-Pesa/Selcom/TCB SMS or receipt text pasted directly,
+  // an alternative to a file upload since no bank-sync provider covers
+  // Tanzanian mobile money. Reuses the same preview/review/import flow.
+  const [inputMode, setInputMode] = useState<'file' | 'paste'>('file')
+  const [pasteText, setPasteText] = useState('')
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([])
@@ -101,6 +107,24 @@ function TransactionImportPanel() {
     onSuccess: (data) => {
       setPreviewData(data)
       setCsvHeaders(data.csv_columns ?? [])
+      setReviewTransactions(toReviewTransactions(data.transactions))
+      setSearchQuery('')
+      setFilterCategoryIds([])
+      setFilterUncategorized(false)
+      setStatusFilter('all')
+      setCurrentPage(1)
+    },
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(detail || t('import.processError'))
+    },
+  })
+
+  const previewTextMutation = useMutation({
+    mutationFn: (text: string) => transactionsApi.previewImportText(text),
+    onSuccess: (data) => {
+      setPreviewData(data)
+      setCsvHeaders([])
       setReviewTransactions(toReviewTransactions(data.transactions))
       setSearchQuery('')
       setFilterCategoryIds([])
@@ -156,6 +180,7 @@ function TransactionImportPanel() {
       setSelectedAccount('')
       setFileName(null)
       setCurrentFile(null)
+      setPasteText('')
       resetCsvOptions()
       if (fileInputRef.current) fileInputRef.current.value = ''
     },
@@ -243,6 +268,7 @@ function TransactionImportPanel() {
     setFileName(null)
     setCurrentFile(null)
     setSelectedAccount('')
+    setPasteText('')
     resetCsvOptions()
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -269,10 +295,63 @@ function TransactionImportPanel() {
 
   const includedCount = reviewTransactions.filter(t => !t.excluded).length
 
+  const hasResult = !!previewData
+  const isPasting = previewTextMutation.isPending
+
   return (
     <div className="space-y-6">
+      {/* Input mode toggle: file upload vs. pasted SMS/receipt text (no
+          bank-sync provider covers Tanzanian mobile money, so pasting a
+          message is the only path for those transactions). Hidden once a
+          result is showing — switching mode mid-review would be confusing. */}
+      {canWrite && !hasResult && (
+        <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+          {([
+            { value: 'file', label: t('import.modeFile'), icon: Upload },
+            { value: 'paste', label: t('import.modePaste'), icon: MessageSquareText },
+          ] as const).map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setInputMode(value)}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                inputMode === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Paste-in zone */}
+      {canWrite && !hasResult && inputMode === 'paste' && (
+        <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+          <p className="text-xs text-muted-foreground">{t('import.pasteHint')}</p>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={t('import.pastePlaceholder')}
+            rows={8}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+            disabled={isPasting}
+          />
+          <div className="flex justify-end">
+            <Button
+              onClick={() => previewTextMutation.mutate(pasteText)}
+              disabled={!pasteText.trim() || isPasting}
+              className="gap-2"
+            >
+              <MessageSquareText size={14} />
+              {isPasting ? t('common.loading') : t('import.parseMessages')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Upload zone */}
-      {canWrite && <div
+      {canWrite && (hasResult ? !!fileName || inputMode === 'file' : inputMode === 'file') && <div
         className={`bg-card rounded-xl border-2 border-dashed transition-all cursor-pointer ${
           dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-border'
         }`}
@@ -345,9 +424,44 @@ function TransactionImportPanel() {
         </div>
       </div>}
 
+      {/* Paste-mode success summary — parallel to the file-mode one above,
+          shown once parsing a paste succeeds. */}
+      {canWrite && hasResult && !fileName && (
+        <div className="bg-card rounded-xl border border-border">
+          <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+              <CheckCircle2 size={22} className="text-emerald-500" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">{t('import.pastedMessages')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('import.previewInfo', { count: previewData!.transactions.length, format: 'SMS' })}
+            </p>
+            <button
+              className="mt-3 text-xs text-muted-foreground hover:text-rose-500 transition-colors flex items-center gap-1"
+              onClick={handleReset}
+            >
+              <X size={12} /> {t('import.clearMessages')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Review section */}
       {previewData && (
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          {/* Warnings from parsers that can't be as strict as a rigid file
+              format (currently: pasted messages) — missing dates defaulted,
+              likely duplicates, unparsed messages. Non-blocking. */}
+          {previewData.warnings && previewData.warnings.length > 0 && (
+            <div className="px-5 py-3 border-b border-border bg-amber-50 space-y-1.5">
+              {previewData.warnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-amber-800">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {/* Header */}
           <div className="px-5 py-4 border-b border-border">
             <div className="flex items-center justify-between">

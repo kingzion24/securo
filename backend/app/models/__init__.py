@@ -19,6 +19,8 @@ from app.models.transaction_attachment import TransactionAttachment
 from app.models.payee import Payee, PayeeMapping, PayeeTaxId
 from app.models.app_settings import AppSetting
 from app.models.goal import Goal
+from app.models.loan import Loan
+from app.models.loan_repayment import LoanRepayment
 from app.models.credit_card_bill import CreditCardBill
 from app.models.group import Group, GroupMember
 from app.models.transaction_split import TransactionSplit
@@ -55,6 +57,8 @@ __all__ = [
     "PayeeTaxId",
     "AppSetting",
     "Goal",
+    "Loan",
+    "LoanRepayment",
     "CreditCardBill",
     "Group",
     "GroupMember",
