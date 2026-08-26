@@ -38,6 +38,7 @@ CURRENCY_META = {
     "NZD": {"symbol": "NZ$", "name": "New Zealand Dollar", "flag": "\U0001F1F3\U0001F1FF"},
     "VND": {"symbol": "₫", "name": "Vietnamese Dong", "flag": "\U0001F1FB\U0001F1F3"},
     "SGD": {"symbol": "S$", "name": "Singapore Dollar", "flag": "\U0001F1F8\U0001F1EC"},
+    "TZS": {"symbol": "TSh", "name": "Tanzanian Shilling", "flag": "\U0001F1F9\U0001F1FF"},
 }
 
 
