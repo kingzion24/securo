@@ -1,0 +1,33 @@
+# Local-build override for docker-compose.prod.yml.
+#
+# The base prod file pulls pre-built images from the upstream project's own
+# registry (ghcr.io/securo-finance/securo-*), which would silently replace
+# this fork's customizations (Loans, TZS support, asset transaction linking,
+# the paste-message importer, etc.) with a generic upstream build. This
+# override swaps those for local builds from ./backend and ./frontend
+# instead — same production Dockerfiles (Vite production build + nginx for
+# the frontend, no dev server / no HMR websocket), just built from our own
+# source.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile

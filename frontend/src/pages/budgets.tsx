@@ -8,7 +8,6 @@ import { extractApiError } from '@/lib/api-errors'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
-import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import {
