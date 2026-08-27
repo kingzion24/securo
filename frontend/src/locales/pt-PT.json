@@ -2029,5 +2029,16 @@
     "linkedTransaction": "linked to a transaction",
     "totalOwedToMe": "Owed to you",
     "totalIOwe": "You owe"
+  },
+  "lock": {
+    "title": "Session locked",
+    "unlock": "Unlock",
+    "usePasskey": "Unlock with passkey",
+    "logOutInstead": "Log out instead",
+    "noMethodAvailable": "No unlock method is available — log out and sign in again.",
+    "autoLock": "Auto-lock",
+    "autoLockOff": "Off",
+    "autoLockMinutes": "After {{count}} minute",
+    "autoLockMinutes_other": "After {{count}} minutes"
   }
 }

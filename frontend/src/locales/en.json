@@ -235,6 +235,17 @@
     "passkeyLastUsed": "Last used",
     "passkeyNeverUsed": "Never"
   },
+  "lock": {
+    "title": "Session locked",
+    "unlock": "Unlock",
+    "usePasskey": "Unlock with passkey",
+    "logOutInstead": "Log out instead",
+    "noMethodAvailable": "No unlock method is available — log out and sign in again.",
+    "autoLock": "Auto-lock",
+    "autoLockOff": "Off",
+    "autoLockMinutes": "After {{count}} minute",
+    "autoLockMinutes_other": "After {{count}} minutes"
+  },
   "dashboard": {
     "title": "Dashboard",
     "greetingMorning": "Good morning",

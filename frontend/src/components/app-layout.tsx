@@ -48,6 +48,7 @@ import {
   Shield,
   ShieldCheck,
   Fingerprint,
+  Lock,
 } from 'lucide-react'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { ChangePasswordDialog } from '@/components/change-password-dialog'
@@ -62,6 +63,8 @@ import { Bot, Search, Sparkles } from 'lucide-react'
 import { setThemeBasedOnSystem } from '@/lib/theme-utils'
 import { useLocalAuthEnabled } from '@/hooks/use-local-auth'
 import { formatCurrency } from '@/lib/format'
+import { useIdleLock, getIdleLockMinutes } from '@/hooks/use-idle-lock'
+import { LockScreen } from '@/components/lock-screen'
 
 /** Placeholder rows shown while the workspace's module list is in flight. */
 function NavSkeleton() {
@@ -118,6 +121,7 @@ export function AppLayout() {
   // `agentsEnabled` again.
   const chatAvailable = agentsEnabled && canWrite
   const localAuthEnabled = useLocalAuthEnabled()
+  const { locked, unlock } = useIdleLock()
 
   // ⌘J / Ctrl+J toggles the global slide-over chat from anywhere.
   // Distinct from ⌘K (command palette) so users can have both open.
@@ -196,6 +200,7 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {locked && <LockScreen onUnlock={unlock} localAuthEnabled={localAuthEnabled} />}
       {/* Mobile header */}
       <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-sidebar border-b border-sidebar-border px-4 lg:hidden">
         <button
@@ -583,7 +588,14 @@ function UserMenu({
 }) {
   const { t, i18n } = useTranslation()
   const nav = useNavigate()
+  const { user, updateUser } = useAuth()
   const currentLang = resolveSupportedLang(i18n.resolvedLanguage ?? i18n.language)
+  const idleLockMinutes = getIdleLockMinutes(user?.preferences)
+  const setIdleLockMinutes = async (minutes: number) => {
+    if (!user) return
+    const updated = await authApi.updateMe({ preferences: { ...user.preferences, idle_lock_minutes: minutes } })
+    updateUser(updated)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -767,6 +779,31 @@ function UserMenu({
                   <Check size={13} className="text-primary" />
                 )}
               </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="flex items-center gap-2">
+            <Lock size={14} />
+            <span className="flex-1">{t('lock.autoLock')}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {idleLockMinutes === 0 ? t('lock.autoLockOff') : t('lock.autoLockMinutes', { count: idleLockMinutes })}
+            </span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="w-48">
+              {[0, 2, 5, 15, 30].map((minutes) => (
+                <DropdownMenuItem
+                  key={minutes}
+                  onClick={() => setIdleLockMinutes(minutes)}
+                  className="flex items-center gap-2"
+                >
+                  <span className="flex-1">
+                    {minutes === 0 ? t('lock.autoLockOff') : t('lock.autoLockMinutes', { count: minutes })}
+                  </span>
+                  {idleLockMinutes === minutes && <Check size={13} className="text-primary" />}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>

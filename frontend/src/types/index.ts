@@ -85,6 +85,9 @@ export interface UserPreferences {
   currency_display?: string
   display_name?: string
   onboarding_completed?: boolean
+  /** Minutes of inactivity before the lock screen appears. 0 = disabled.
+   * Defaults to 5 when unset — see `getIdleLockMinutes`. */
+  idle_lock_minutes?: number
 }
 
 export interface Category {
