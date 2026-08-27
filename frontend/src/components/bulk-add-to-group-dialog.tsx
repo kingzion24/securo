@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import type { GroupKind } from '@/types'

@@ -77,7 +77,7 @@ export function formatForDisplay(clean: CleanValue, locale: string): string {
   const intPart = dotIdx === -1 ? unsigned : unsigned.slice(0, dotIdx)
   const decPart = dotIdx === -1 ? null : unsigned.slice(dotIdx + 1)
 
-  const { decimal, group } = getLocaleSeparators(locale)
+  const { decimal } = getLocaleSeparators(locale)
   const intDigits = intPart.replace(/^0+(?=\d)/, '') || '0'
 
   let groupedInt: string
