@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import 'auth_controller.dart';
@@ -137,13 +138,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final colors = SecuroTheme.of(context);
     final text = Theme.of(context).textTheme;
     final origin = ref.watch(baseUrlProvider);
+    final responsive = context.responsive;
 
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.pagePadding + 8,
+              vertical: 32,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
@@ -154,8 +159,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Center(
                       child: SvgPicture.asset(
                         'assets/images/logo.svg',
-                        width: 56,
-                        height: 56,
+                        width: responsive.scale(56, min: 48, max: 64),
+                        height: responsive.scale(56, min: 48, max: 64),
                       ),
                     ),
                     const SizedBox(height: 20),
