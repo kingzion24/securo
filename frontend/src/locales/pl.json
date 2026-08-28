@@ -2105,6 +2105,11 @@
         "claude": "Claude Desktop / Code / Cursor",
         "openai": "OpenAI Responses API"
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

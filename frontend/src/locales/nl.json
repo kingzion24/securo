@@ -2004,6 +2004,11 @@
         "title": "Nog geen verbindingen",
         "subtitle": "Voeg een verbinding toe om Securo te richten op uw lokale Ollama, OpenAI, Anthropic of een ander OpenAI-compatibel endpoint."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

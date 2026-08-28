@@ -34,6 +34,7 @@ async def scrape(client: httpx.AsyncClient) -> SourceResult:
     parts: list[str] = []
     item_count = 0
     errors: list[str] = []
+    items: list[tuple[str, str]] = []
 
     try:
         resp = await client.get(PERFORMANCE_URL)
@@ -68,6 +69,7 @@ async def scrape(client: httpx.AsyncClient) -> SourceResult:
             lines = "\n".join(f"- {l.text} — {l.url}" for l in links)
             parts.append(f"# UTT AMIS — news & announcements\nSource: {NEWS_URL}\n\n{lines}")
             item_count += len(links)
+            items.extend((l.text, l.url) for l in links)
         else:
             errors.append("news_and_events: no items found")
     except Exception as exc:  # noqa: BLE001
@@ -84,4 +86,5 @@ async def scrape(client: httpx.AsyncClient) -> SourceResult:
         item_count=item_count,
         ok=True,
         error="; ".join(errors) or None,
+        items=items,
     )

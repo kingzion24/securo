@@ -1597,6 +1597,16 @@ export interface KnowledgeDoc {
   updated_at: string
 }
 
+export interface ScraperFinding {
+  id: string
+  agent_id: string
+  source_key: string
+  title: string
+  url: string
+  discovered_at: string
+  dismissed_at: string | null
+}
+
 export const agents = {
   info: async () => {
     const { data } = await api.get('/agents/info')
@@ -1670,6 +1680,16 @@ export const agents = {
     },
     remove: async (agentId: string, docId: string): Promise<void> => {
       await api.delete(`/agents/${agentId}/knowledge/${docId}`)
+    },
+  },
+  findings: {
+    list: async (agentId: string): Promise<{ items: ScraperFinding[]; total: number }> => {
+      const { data } = await api.get(`/agents/${agentId}/findings`)
+      return data
+    },
+    dismiss: async (agentId: string, findingId: string): Promise<ScraperFinding> => {
+      const { data } = await api.post(`/agents/${agentId}/findings/${findingId}/dismiss`)
+      return data
     },
   },
   conversations: {

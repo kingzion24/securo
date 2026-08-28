@@ -2004,6 +2004,11 @@
         "title": "Aucune connexion pour l'instant",
         "subtitle": "Ajoutez une connexion pour pointer Securo vers votre Ollama local, OpenAI, Anthropic, ou tout point de terminaison compatible OpenAI."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

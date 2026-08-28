@@ -2012,6 +2012,11 @@
         "title": "Підключень поки немає",
         "subtitle": "Додайте підключення, щоб направити Securo на ваш локальний Ollama, OpenAI, Anthropic або будь-який сумісний з OpenAI ендпоінт."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

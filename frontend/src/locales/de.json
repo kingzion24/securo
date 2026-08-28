@@ -2004,6 +2004,11 @@
         "title": "Noch keine Verbindungen",
         "subtitle": "Füge eine Verbindung hinzu, um Securo auf dein lokales Ollama, OpenAI, Anthropic oder einen OpenAI-kompatiblen Endpunkt zu verweisen."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

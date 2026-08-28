@@ -1923,6 +1923,11 @@
       "newConversation": "New conversation",
       "untitled": "New conversation"
     },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
+    },
     "knowledge": {
       "title": "Knowledge base",
       "subtitle": "PDF, MD, or TXT. Pinned docs always go into context.",

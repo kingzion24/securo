@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
-from scraper import ingest
+from scraper import findings, ingest
 from scraper.sources import dse, investa, mystocks, tanzaniainvest, uttamis
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -71,6 +71,12 @@ async def _run_cycle(session_maker: async_sessionmaker[AsyncSession], agent_id: 
                     continue
             if ingested:
                 logger.info("source %s: ingested %d items", name, result.item_count)
+
+            async with session_maker() as session:
+                try:
+                    await findings.record_findings(session, agent_id=agent_id, result=result)
+                except Exception:  # noqa: BLE001
+                    logger.exception("source %s: findings tracking failed", name)
 
 
 async def main() -> None:

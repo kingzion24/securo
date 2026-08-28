@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowLeftRight, CalendarClock, CalendarDays, Copy, Download, List, MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MonthStepper } from '@/components/month-stepper'
-import { TransactionsViewSwitcher, type TransactionsViewSwitcherProps } from '@/components/transactions-view-switcher'
+import { TransactionsViewSwitcher } from '@/components/transactions-view-switcher'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -49,43 +49,6 @@ function HeaderMonthStepper({ month }: { month: MonthStepperConfig }) {
   return (
     <div className="min-w-0 flex-1 sm:flex-none">
       <MonthStepper {...month} />
-    </div>
-  )
-}
-
-function DesktopViewSwitcher({ view }: { view: ViewSwitcherConfig }) {
-  return (
-    <div className="inline-flex rounded-full border border-border bg-card p-0.5">
-      <Button
-        variant={view.value === 'list' ? 'secondary' : 'ghost'}
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-pressed={view.value === 'list'}
-        onClick={() => view.onChange('list')}
-      >
-        <List size={14} />
-        {view.listLabel}
-      </Button>
-      <Button
-        variant={view.value === 'calendar' ? 'secondary' : 'ghost'}
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-pressed={view.value === 'calendar'}
-        onClick={() => view.onChange('calendar')}
-      >
-        <CalendarDays size={14} />
-        {view.calendarLabel}
-      </Button>
-      <Button
-        variant={view.value === 'day' ? 'secondary' : 'ghost'}
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-pressed={view.value === 'day'}
-        onClick={() => view.onChange('day')}
-      >
-        <CalendarClock size={14} />
-        {view.dayLabel}
-      </Button>
     </div>
   )
 }
