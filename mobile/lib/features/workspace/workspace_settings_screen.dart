@@ -5,6 +5,7 @@ import '../../core/format/color.dart';
 import '../../core/format/country_flag.dart';
 import '../../core/format/currencies.dart';
 import '../../core/icons/lucide_icon_map.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/app_dialog.dart';
@@ -267,7 +268,12 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
       title: 'Workspace',
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 60),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            12,
+            context.responsive.pagePadding,
+            60,
+          ),
           sliver: SliverToBoxAdapter(
             child: _loading
                 ? const Padding(
@@ -559,10 +565,16 @@ class _StatTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Column(
           children: [
-            Text(value,
-                style:
-                    Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+            ),
             Text(label,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context)
                     .textTheme
                     .labelSmall
