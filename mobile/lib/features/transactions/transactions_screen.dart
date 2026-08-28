@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/format/color.dart';
 import '../../core/format/money.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/feedback.dart';
@@ -203,7 +204,12 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                 ],
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            8,
+            context.responsive.pagePadding,
+            4,
+          ),
           sliver: SliverToBoxAdapter(
             child: CupertinoSearchTextField(
               controller: _searchController,
@@ -251,6 +257,7 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
               canEdit: canEdit,
               selecting: _selecting,
               selectedIds: _selectedIds,
+              horizontalPadding: context.responsive.pagePadding,
               onLongPressStart: _selecting ? null : (id) {
                 _toggleSelectionMode();
                 _toggleSelected(id);
@@ -270,6 +277,7 @@ List<Widget> _transactionSlivers({
   required Set<String> selectedIds,
   required void Function(String id)? onLongPressStart,
   required void Function(String id) onToggleSelected,
+  required double horizontalPadding,
   String? locale,
 }) {
   final grouped = state.groupedByDate;
@@ -277,7 +285,7 @@ List<Widget> _transactionSlivers({
 
   return [
     SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 100),
       sliver: SliverList.builder(
         itemCount:
             days.length + (state.status == TransactionsStatus.loadingMore ? 1 : 0),
@@ -471,7 +479,12 @@ class _TransactionsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          context.responsive.pagePadding,
+          8,
+          context.responsive.pagePadding,
+          24,
+        ),
         sliver: SliverToBoxAdapter(
           child: Column(
             children: [
