@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format/display_settings.dart';
 import '../../core/format/money.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/large_title_scroll.dart';
@@ -102,6 +103,7 @@ class _AccountsView extends ConsumerWidget {
             locale: locale,
             displayCurrency: displayCurrency,
             canEdit: canEdit,
+            horizontalPadding: context.responsive.pagePadding,
           ),
       },
     );
@@ -112,6 +114,7 @@ List<Widget> _accountsSlivers({
   required AccountsState state,
   required String displayCurrency,
   required bool canEdit,
+  required double horizontalPadding,
   String? locale,
 }) {
   if (state.accounts.isEmpty) {
@@ -130,7 +133,7 @@ List<Widget> _accountsSlivers({
   final grouped = state.groupedByType;
   return [
     SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 100),
       sliver: SliverToBoxAdapter(
         child: Builder(
           builder: (context) {
@@ -344,7 +347,12 @@ class _AccountsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          context.responsive.pagePadding,
+          12,
+          context.responsive.pagePadding,
+          24,
+        ),
         sliver: SliverToBoxAdapter(
           child: Column(
             children: [

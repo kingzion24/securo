@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/display_settings.dart';
 import '../../core/format/money.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/feedback.dart';
@@ -132,7 +133,12 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ],
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            12,
+            context.responsive.pagePadding,
+            8,
+          ),
           sliver: SliverToBoxAdapter(
             child: SecuroCard(
               child: Column(
@@ -170,13 +176,17 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    formatMoney(_account.currentBalance,
-                        currency: _account.currency, locale: locale),
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      formatMoney(_account.currentBalance,
+                          currency: _account.currency, locale: locale),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ],
               ),
@@ -184,7 +194,12 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            8,
+            context.responsive.pagePadding,
+            100,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
