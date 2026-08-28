@@ -109,20 +109,36 @@ Map<String, dynamic> _normalizeAction(Map<String, dynamic> action) => {
     };
 
 class RuleFormScreen extends ConsumerStatefulWidget {
-  const RuleFormScreen({this.rule, super.key});
+  const RuleFormScreen({this.rule, this.initialName, this.initialCondition, super.key});
   final Rule? rule;
+
+  /// Prefill for the "create rule from this transaction" shortcut — the
+  /// transaction's own description, so the new rule already has a sensible
+  /// name before the user touches anything.
+  final String? initialName;
+
+  /// Same shortcut: seeds the first condition (typically field
+  /// 'description', op 'contains', value the transaction's own text) so
+  /// the common case — "match transactions like this one" — needs no
+  /// retyping.
+  final Map<String, dynamic>? initialCondition;
 
   @override
   ConsumerState<RuleFormScreen> createState() => _RuleFormScreenState();
 }
 
 class _RuleFormScreenState extends ConsumerState<RuleFormScreen> {
-  late final _name = TextEditingController(text: widget.rule?.name ?? '');
+  late final _name =
+      TextEditingController(text: widget.rule?.name ?? widget.initialName ?? '');
   late bool _isActive = widget.rule?.isActive ?? true;
   late String _conditionsOp = widget.rule?.conditionsOp ?? 'and';
   late final List<Map<String, dynamic>> _conditions = widget.rule != null
       ? widget.rule!.conditions.map(_normalizeNode).toList()
-      : [_newLeaf()];
+      : [
+          widget.initialCondition != null
+              ? _normalizeLeaf(widget.initialCondition!)
+              : _newLeaf()
+        ];
   late final List<Map<String, dynamic>> _actions = widget.rule != null
       ? widget.rule!.actions.map(_normalizeAction).toList()
       : [_newAction()];

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/format/color.dart';
 import '../../core/format/money.dart';
+import '../../core/privacy_mode.dart';
 import '../../core/providers.dart';
 import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
@@ -18,6 +19,7 @@ import '../../core/widgets/pressable.dart';
 import '../../models/category.dart';
 import '../../models/transaction.dart';
 import '../categories/categories_screen.dart';
+import '../rules/rule_form_screen.dart';
 import '../workspace/workspace_controller.dart';
 import 'attachments_repository.dart';
 import 'bloc/transactions_bloc.dart';
@@ -157,10 +159,10 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
         context.read<TransactionsBloc>().add(const TransactionsRefreshed());
         await Future<void>.delayed(const Duration(milliseconds: 400));
       },
-      actions: !canEdit
-          ? null
-          : _selecting
-              ? [
+      actions: _selecting
+          ? (!canEdit
+              ? null
+              : [
                   IconButton(
                     icon: const Icon(Icons.sell_outlined),
                     tooltip: 'Set category',
@@ -175,8 +177,19 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                     onPressed: _toggleSelectionMode,
                     child: const Text('Done'),
                   ),
-                ]
-              : [
+                ])
+          : [
+              Consumer(
+                builder: (context, ref, _) {
+                  final privacyMode = ref.watch(privacyModeProvider);
+                  return IconButton(
+                    icon: Icon(privacyMode ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                    tooltip: privacyMode ? 'Show amounts' : 'Hide amounts',
+                    onPressed: () => ref.read(privacyModeProvider.notifier).toggle(),
+                  );
+                },
+              ),
+              if (canEdit) ...[
                   Builder(
                     builder: (context) => IconButton(
                       icon: Badge(
@@ -224,6 +237,7 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                     ),
                   ),
                 ],
+            ],
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(
@@ -436,6 +450,10 @@ class _TransactionTile extends ConsumerWidget {
             onPressed: () => Navigator.of(context).pop('ignore'),
             child: Text(transaction.isIgnored ? 'Unignore' : 'Ignore'),
           ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('create_rule'),
+            child: const Text('Create rule from this'),
+          ),
           if (transaction.recurringTransactionId != null)
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(context).pop('unlink_recurring'),
@@ -476,6 +494,22 @@ class _TransactionTile extends ConsumerWidget {
         } catch (error) {
           if (context.mounted) showAppToast(context, '$error', isError: true);
         }
+      case 'create_rule':
+        await pushFormScreen<bool>(
+          context,
+          RuleFormScreen(
+            initialName: transaction.description.isNotEmpty
+                ? transaction.description
+                : transaction.payeeName,
+            initialCondition: {
+              'field': 'description',
+              'op': 'contains',
+              'value': transaction.description.isNotEmpty
+                  ? transaction.description
+                  : (transaction.payeeName ?? ''),
+            },
+          ),
+        );
       case 'unlink_recurring':
         try {
           await repo.unlinkRecurring(transaction.id);
@@ -541,6 +575,7 @@ class _TransactionTile extends ConsumerWidget {
     final amount = transaction.displayAmount;
     final categoryColor = parseHexColor(transaction.category?.color) ?? colors.muted;
     final ignored = transaction.isIgnored;
+    final privacyMode = ref.watch(privacyModeProvider);
 
     return Pressable(
       onTap: selecting
@@ -632,7 +667,9 @@ class _TransactionTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                formatSignedMoney(amount, currency: transaction.currency, locale: locale),
+                privacyMode
+                    ? kPrivacyMask
+                    : formatSignedMoney(amount, currency: transaction.currency, locale: locale),
                 // Sign prefix (+/-) carries the meaning; Apple's own list-value
                 // convention (iOS Wallet) keeps amounts grayscale rather than
                 // color-coding income/expense.
