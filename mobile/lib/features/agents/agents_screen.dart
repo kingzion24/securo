@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,9 +12,12 @@ import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/agent.dart';
 import '../workspace/workspace_controller.dart';
+import 'agent_chat_screen.dart';
 import 'agent_form_screen.dart';
 import 'agents_repository.dart';
 import 'connections_screen.dart';
+import 'conversation_history_screen.dart';
+import 'conversations_repository.dart';
 
 final agentsRepositoryProvider = Provider<AgentsRepository>(
   (ref) => AgentsRepository(ref.watch(apiClientProvider)),
@@ -21,6 +25,10 @@ final agentsRepositoryProvider = Provider<AgentsRepository>(
 
 final connectionsRepositoryProvider = Provider<ConnectionsRepository>(
   (ref) => ConnectionsRepository(ref.watch(apiClientProvider)),
+);
+
+final conversationsRepositoryProvider = Provider<ConversationsRepository>(
+  (ref) => ConversationsRepository(ref.watch(apiClientProvider)),
 );
 
 class AgentsScreen extends ConsumerWidget {
@@ -76,12 +84,24 @@ class _AgentTile extends StatelessWidget {
   final bool canEdit;
   final AgentsRepository repository;
 
+  void _chat(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => AgentChatScreen(agent: agent)),
+    );
+  }
+
   Future<void> _edit(BuildContext context) async {
     if (!canEdit) return;
     final saved = await pushFormScreen<bool>(context, AgentFormScreen(agent: agent));
     if (saved == true && context.mounted) {
       context.read<ResourceListCubit<Agent>>().load();
     }
+  }
+
+  void _history(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => ConversationHistoryScreen(agent: agent)),
+    );
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -100,12 +120,51 @@ class _AgentTile extends StatelessWidget {
     }
   }
 
+  Future<void> _openActions(BuildContext context) async {
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(agent.name),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('history'),
+            child: const Text('Conversation history'),
+          ),
+          if (canEdit)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop('edit'),
+              child: const Text('Edit'),
+            ),
+          if (canEdit)
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.of(context).pop('delete'),
+              child: const Text('Delete'),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'history':
+        _history(context);
+      case 'edit':
+        await _edit(context);
+      case 'delete':
+        await _delete(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
     return Pressable(
-      onTap: () => _edit(context),
-      onLongPress: () => _delete(context),
+      onTap: () => _chat(context),
+      onLongPress: () => _openActions(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -147,7 +206,7 @@ class _AgentTile extends StatelessWidget {
                       ?.copyWith(color: colors.mutedForeground),
                 ),
               ),
-            if (canEdit) Icon(Icons.chevron_right, size: 18, color: colors.mutedForeground),
+            Icon(Icons.chat_bubble_outline, size: 18, color: colors.mutedForeground),
           ],
         ),
       ),

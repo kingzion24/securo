@@ -87,6 +87,25 @@ class ApiClient {
   Future<T> delete<T>(String path, {Object? body}) =>
       _send(() => dio.delete<T>(path, data: body));
 
+  /// Streams a `text/event-stream` response body's raw bytes — used for the
+  /// agent chat endpoint. The interceptors above still attach auth/workspace
+  /// headers; framing into SSE events is left to the caller since it's only
+  /// needed by that one feature.
+  Future<Stream<List<int>>> postEventStream(String path, {Object? body}) async {
+    final response = await dio.post<ResponseBody>(
+      path,
+      data: body,
+      options: Options(
+        responseType: ResponseType.stream,
+        // Chat responses can take a while to finish (tool calls, long
+        // generations); the default receive timeout would cut them off.
+        receiveTimeout: Duration.zero,
+        headers: {'Accept': 'text/event-stream'},
+      ),
+    );
+    return response.data!.stream;
+  }
+
   /// Form-encoded POST — the login endpoint takes an OAuth2 password form
   /// rather than JSON.
   Future<T> postForm<T>(String path, Map<String, dynamic> fields) => _send(
