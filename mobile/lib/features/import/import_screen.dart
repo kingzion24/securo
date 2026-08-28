@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/format/display_settings.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/feedback.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/account.dart';
 import '../../models/import_log.dart';
@@ -173,10 +175,8 @@ class _ImportSheetState extends ConsumerState<_ImportSheet> {
             detectedFormat: preview.detectedFormat,
           );
       if (!mounted) return;
+      showAppToast(context, 'Imported $imported transactions');
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported $imported transactions')),
-      );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -191,6 +191,8 @@ class _ImportSheetState extends ConsumerState<_ImportSheet> {
     final colors = SecuroTheme.of(context);
     final accountsAsync = ref.watch(_importAccountsProvider);
 
+    final pad = context.responsive.pagePadding;
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -198,13 +200,24 @@ class _ImportSheetState extends ConsumerState<_ImportSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: colors.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(SecuroRadius.xl)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(SecuroRadius.panel)),
         ),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        padding: EdgeInsets.fromLTRB(pad, 10, pad, 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(SecuroRadius.pill),
+                ),
+              ),
+            ),
             Text(widget.filename, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16),
             if (_loading)
@@ -215,7 +228,16 @@ class _ImportSheetState extends ConsumerState<_ImportSheet> {
                 ),
               )
             else if (_error != null)
-              Text(_error!, style: TextStyle(color: colors.destructive))
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.error_outline, size: 16, color: colors.destructive),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_error!, style: TextStyle(color: colors.destructive)),
+                  ),
+                ],
+              )
             else if (_preview != null) ...[
               Text(
                 '${_preview!.transactions.length} transactions found'
