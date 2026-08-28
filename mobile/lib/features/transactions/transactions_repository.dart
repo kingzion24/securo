@@ -58,6 +58,7 @@ class TransactionsRepository {
     String? payeeId,
     String? currency,
     String? notes,
+    Map<String, dynamic>? splits,
   }) async {
     final data = await _api.post<Map<String, dynamic>>(
       '/transactions',
@@ -71,9 +72,48 @@ class TransactionsRepository {
         'payee_id': ?payeeId,
         'currency': ?currency,
         'notes': ?notes,
+        'splits': ?splits,
       },
     );
     return Transaction.fromJson(data);
+  }
+
+  /// Fans a single purchase out into `installments` equal, evenly-spaced
+  /// rows — the first posted, the rest pending — via the dedicated series
+  /// endpoint rather than repeated individual `create()` calls, so the
+  /// server ties them together with one installment fingerprint.
+  Future<List<Transaction>> createInstallmentSeries({
+    required String description,
+    required double amount,
+    required String date,
+    required String type,
+    required String accountId,
+    required int installments,
+    String frequency = 'monthly',
+    String? categoryId,
+    String? payeeId,
+    String? currency,
+    String? notes,
+  }) async {
+    final data = await _api.post<List<dynamic>>(
+      '/transactions/installments',
+      body: {
+        'base': {
+          'description': description,
+          'amount': amount,
+          'date': date,
+          'type': type,
+          'account_id': accountId,
+          'category_id': ?categoryId,
+          'payee_id': ?payeeId,
+          'currency': ?currency,
+          'notes': ?notes,
+        },
+        'installments': installments,
+        'frequency': frequency,
+      },
+    );
+    return data.map((e) => Transaction.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<Transaction> update(
@@ -86,6 +126,8 @@ class TransactionsRepository {
     String? categoryId,
     String? payeeId,
     String? notes,
+    Map<String, dynamic>? splits,
+    String applyTo = 'this',
   }) async {
     final data = await _api.patch<Map<String, dynamic>>(
       '/transactions/$id',
@@ -98,6 +140,8 @@ class TransactionsRepository {
         'category_id': ?categoryId,
         'payee_id': ?payeeId,
         'notes': ?notes,
+        'splits': ?splits,
+        'apply_to': applyTo,
       },
     );
     return Transaction.fromJson(data);
