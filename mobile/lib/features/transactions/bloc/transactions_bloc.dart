@@ -25,6 +25,7 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       _onSearched,
       transformer: _debounce(const Duration(milliseconds: 350)),
     );
+    on<TransactionsFiltersChanged>(_onFiltersChanged, transformer: restartable());
   }
 
   final TransactionsRepository _repository;
@@ -75,13 +76,29 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
     await _load(page: 1, emit: emit, replace: true);
   }
 
+  Future<void> _onFiltersChanged(
+    TransactionsFiltersChanged event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    emit(state.copyWith(
+      filters: event.filters,
+      status: TransactionsStatus.loading,
+      clearError: true,
+    ));
+    await _load(page: 1, emit: emit, replace: true);
+  }
+
   Future<void> _load({
     required int page,
     required Emitter<TransactionsState> emit,
     required bool replace,
   }) async {
     try {
-      final result = await _repository.list(page: page, query: state.query);
+      final result = await _repository.list(
+        page: page,
+        query: state.query,
+        filters: state.filters,
+      );
       emit(state.copyWith(
         status: TransactionsStatus.success,
         transactions:

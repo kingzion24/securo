@@ -17,6 +17,116 @@ class TransactionsPage {
   bool get hasMore => page * limit < total;
 }
 
+/// The filter set the web app's filter bar exposes, minus what makes no
+/// sense on a phone (column sort, saved views). Every field maps 1:1 to a
+/// `GET /transactions` query param the backend already accepts.
+class TransactionFilters {
+  const TransactionFilters({
+    this.accountIds = const [],
+    this.categoryIds = const [],
+    this.payeeId,
+    this.type,
+    this.status,
+    this.fromDate,
+    this.toDate,
+    this.minAmount,
+    this.maxAmount,
+    this.excludeIgnored = false,
+    this.uncategorized = false,
+  });
+
+  final List<String> accountIds;
+  final List<String> categoryIds;
+  final String? payeeId;
+
+  /// 'debit' or 'credit'.
+  final String? type;
+
+  /// 'posted' or 'pending'.
+  final String? status;
+  final String? fromDate;
+  final String? toDate;
+  final double? minAmount;
+  final double? maxAmount;
+  final bool excludeIgnored;
+  final bool uncategorized;
+
+  bool get isEmpty =>
+      accountIds.isEmpty &&
+      categoryIds.isEmpty &&
+      payeeId == null &&
+      type == null &&
+      status == null &&
+      fromDate == null &&
+      toDate == null &&
+      minAmount == null &&
+      maxAmount == null &&
+      !excludeIgnored &&
+      !uncategorized;
+
+  /// How many distinct filter choices are active — shown as a badge count
+  /// on the filter button, same idea as the web filter bar's chip row.
+  int get activeCount => [
+        if (accountIds.isNotEmpty) 1,
+        if (categoryIds.isNotEmpty) 1,
+        if (payeeId != null) 1,
+        if (type != null) 1,
+        if (status != null) 1,
+        if (fromDate != null || toDate != null) 1,
+        if (minAmount != null || maxAmount != null) 1,
+        if (excludeIgnored) 1,
+        if (uncategorized) 1,
+      ].length;
+
+  TransactionFilters copyWith({
+    List<String>? accountIds,
+    List<String>? categoryIds,
+    String? payeeId,
+    bool clearPayeeId = false,
+    String? type,
+    bool clearType = false,
+    String? status,
+    bool clearStatus = false,
+    String? fromDate,
+    bool clearFromDate = false,
+    String? toDate,
+    bool clearToDate = false,
+    double? minAmount,
+    bool clearMinAmount = false,
+    double? maxAmount,
+    bool clearMaxAmount = false,
+    bool? excludeIgnored,
+    bool? uncategorized,
+  }) =>
+      TransactionFilters(
+        accountIds: accountIds ?? this.accountIds,
+        categoryIds: categoryIds ?? this.categoryIds,
+        payeeId: clearPayeeId ? null : (payeeId ?? this.payeeId),
+        type: clearType ? null : (type ?? this.type),
+        status: clearStatus ? null : (status ?? this.status),
+        fromDate: clearFromDate ? null : (fromDate ?? this.fromDate),
+        toDate: clearToDate ? null : (toDate ?? this.toDate),
+        minAmount: clearMinAmount ? null : (minAmount ?? this.minAmount),
+        maxAmount: clearMaxAmount ? null : (maxAmount ?? this.maxAmount),
+        excludeIgnored: excludeIgnored ?? this.excludeIgnored,
+        uncategorized: uncategorized ?? this.uncategorized,
+      );
+
+  Map<String, dynamic> toQuery() => {
+        'account_ids': accountIds.isEmpty ? null : accountIds,
+        'category_ids': categoryIds.isEmpty ? null : categoryIds,
+        'payee_id': payeeId,
+        'type': type,
+        'status': status,
+        'from': fromDate,
+        'to': toDate,
+        'min_amount': minAmount,
+        'max_amount': maxAmount,
+        'exclude_ignored': excludeIgnored ? true : null,
+        'uncategorized': uncategorized ? true : null,
+      };
+}
+
 class TransactionsRepository {
   TransactionsRepository(this._api);
 
@@ -27,6 +137,7 @@ class TransactionsRepository {
     int limit = 30,
     String? query,
     String? accountId,
+    TransactionFilters filters = const TransactionFilters(),
   }) async {
     final data = await _api.get<Map<String, dynamic>>(
       '/transactions',
@@ -35,6 +146,7 @@ class TransactionsRepository {
         'limit': limit,
         if (query != null && query.isNotEmpty) 'q': query,
         'account_id': ?accountId,
+        ...filters.toQuery(),
       },
     );
     final items = (data['items'] as List<dynamic>)
@@ -149,6 +261,32 @@ class TransactionsRepository {
 
   Future<void> delete(String id, {String applyTo = 'this'}) =>
       _api.delete<dynamic>('/transactions/$id?apply_to=$applyTo');
+
+  Future<Transaction> toggleIgnore(String id) async {
+    final data = await _api.patch<Map<String, dynamic>>('/transactions/$id/ignore');
+    return Transaction.fromJson(data);
+  }
+
+  Future<Transaction> unlinkRecurring(String id) async {
+    final data = await _api.patch<Map<String, dynamic>>('/transactions/$id/unlink-recurring');
+    return Transaction.fromJson(data);
+  }
+
+  /// Creates a new transaction copying every user-entered field from
+  /// [source] except its date, which defaults to today — matching the
+  /// web app's "duplicate" action (a new row, not a reference to the old
+  /// one, so it carries none of the original's status/attachments/splits).
+  Future<Transaction> duplicate(Transaction source, {String? date}) => create(
+        description: source.description,
+        amount: source.amount.abs(),
+        date: date ?? DateTime.now().toIso8601String().split('T').first,
+        type: source.type == TransactionType.credit ? 'credit' : 'debit',
+        accountId: source.accountId!,
+        categoryId: source.categoryId,
+        payeeId: source.payeeId,
+        currency: source.currency,
+        notes: source.notes,
+      );
 
   Future<int> bulkDelete(List<String> ids) async {
     final data = await _api.post<Map<String, dynamic>>(

@@ -22,3 +22,8 @@ class TransactionsSearched extends TransactionsEvent {
   const TransactionsSearched(this.query);
   final String query;
 }
+
+class TransactionsFiltersChanged extends TransactionsEvent {
+  const TransactionsFiltersChanged(this.filters);
+  final TransactionFilters filters;
+}

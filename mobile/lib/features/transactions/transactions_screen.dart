@@ -21,6 +21,7 @@ import '../categories/categories_screen.dart';
 import '../workspace/workspace_controller.dart';
 import 'attachments_repository.dart';
 import 'bloc/transactions_bloc.dart';
+import 'transaction_filters_sheet.dart';
 import 'transaction_form_screen.dart';
 import 'transactions_repository.dart';
 import 'transfer_form_screen.dart';
@@ -176,6 +177,27 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                   ),
                 ]
               : [
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: Badge(
+                        isLabelVisible: state.filters.activeCount > 0,
+                        label: Text('${state.filters.activeCount}'),
+                        child: const Icon(Icons.filter_list),
+                      ),
+                      tooltip: 'Filter',
+                      onPressed: () async {
+                        final picked = await showTransactionFiltersSheet(
+                          context,
+                          current: state.filters,
+                        );
+                        if (picked != null && context.mounted) {
+                          context
+                              .read<TransactionsBloc>()
+                              .add(TransactionsFiltersChanged(picked));
+                        }
+                      },
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.checklist),
                     tooltip: 'Select',
@@ -242,10 +264,12 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                 hasScrollBody: false,
                 child: EmptyState(
                   icon: Icons.swap_horiz,
-                  title: state.query.isEmpty
-                      ? 'No transactions yet'
-                      : 'No matches for "${state.query}"',
-                  message: state.query.isEmpty
+                  title: state.query.isNotEmpty
+                      ? 'No matches for "${state.query}"'
+                      : !state.filters.isEmpty
+                          ? 'No transactions match these filters'
+                          : 'No transactions yet',
+                  message: state.query.isEmpty && state.filters.isEmpty
                       ? 'Transactions from your accounts show up here.'
                       : null,
                 ),
@@ -360,7 +384,7 @@ String _dayLabel(String isoDate, String? locale) {
   return DateFormat.yMMMd(locale).format(date);
 }
 
-class _TransactionTile extends StatelessWidget {
+class _TransactionTile extends ConsumerWidget {
   const _TransactionTile({
     required this.transaction,
     required this.canEdit,
@@ -390,12 +414,133 @@ class _TransactionTile extends StatelessWidget {
     }
   }
 
+  Future<void> _openActions(BuildContext context, WidgetRef ref) async {
+    if (!canEdit) return;
+    final repo = ref.read(transactionsRepositoryProvider);
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(
+          transaction.description.isNotEmpty ? transaction.description : 'Transaction',
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('edit'),
+            child: const Text('Edit'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('duplicate'),
+            child: const Text('Duplicate'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('ignore'),
+            child: Text(transaction.isIgnored ? 'Unignore' : 'Ignore'),
+          ),
+          if (transaction.recurringTransactionId != null)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop('unlink_recurring'),
+              child: const Text('Unlink from recurring'),
+            ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop('delete'),
+            child: const Text('Delete'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (!context.mounted || action == null) return;
+
+    switch (action) {
+      case 'edit':
+        await _edit(context);
+      case 'duplicate':
+        try {
+          await repo.duplicate(transaction);
+          if (context.mounted) {
+            context.read<TransactionsBloc>().add(const TransactionsRequested());
+          }
+        } catch (error) {
+          if (context.mounted) showAppToast(context, '$error', isError: true);
+        }
+      case 'ignore':
+        try {
+          await repo.toggleIgnore(transaction.id);
+          if (context.mounted) {
+            context.read<TransactionsBloc>().add(const TransactionsRequested());
+          }
+        } catch (error) {
+          if (context.mounted) showAppToast(context, '$error', isError: true);
+        }
+      case 'unlink_recurring':
+        try {
+          await repo.unlinkRecurring(transaction.id);
+          if (context.mounted) {
+            context.read<TransactionsBloc>().add(const TransactionsRequested());
+          }
+        } catch (error) {
+          if (context.mounted) showAppToast(context, '$error', isError: true);
+        }
+      case 'delete':
+        String applyTo = 'this';
+        if (transaction.installmentSeriesId != null) {
+          final scope = await showCupertinoModalPopup<String>(
+            context: context,
+            builder: (context) => CupertinoActionSheet(
+              title: const Text('Delete installment'),
+              message: const Text('This is part of an installment series.'),
+              actions: [
+                CupertinoActionSheetAction(
+                  onPressed: () => Navigator.of(context).pop('this'),
+                  child: const Text('Just this one'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: () => Navigator.of(context).pop('future'),
+                  child: const Text('This and future'),
+                ),
+                CupertinoActionSheetAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.of(context).pop('all'),
+                  child: const Text('The whole series'),
+                ),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ),
+          );
+          if (scope == null || !context.mounted) return;
+          applyTo = scope;
+        } else {
+          final confirmed = await confirmDelete(
+            context,
+            title: 'Delete this transaction?',
+          );
+          if (!confirmed || !context.mounted) return;
+        }
+        try {
+          await repo.delete(transaction.id, applyTo: applyTo);
+          if (context.mounted) {
+            context.read<TransactionsBloc>().add(const TransactionsRequested());
+          }
+        } catch (error) {
+          if (context.mounted) showAppToast(context, '$error', isError: true);
+        }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = SecuroTheme.of(context);
     final text = Theme.of(context).textTheme;
     final amount = transaction.displayAmount;
     final categoryColor = parseHexColor(transaction.category?.color) ?? colors.muted;
+    final ignored = transaction.isIgnored;
 
     return Pressable(
       onTap: selecting
@@ -404,70 +549,107 @@ class _TransactionTile extends StatelessWidget {
       onLongPress: selecting || !canEdit || onLongPressStart == null
           ? null
           : () => onLongPressStart!(transaction.id),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            if (selecting) ...[
-              Icon(
-                selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 22,
-                color: selected ? colors.primary : colors.mutedForeground,
+      child: Opacity(
+        opacity: ignored ? 0.5 : 1,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              if (selecting) ...[
+                Icon(
+                  selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                  size: 22,
+                  color: selected ? colors.primary : colors.mutedForeground,
+                ),
+                const SizedBox(width: 10),
+              ],
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(SecuroRadius.md),
+                ),
+                alignment: Alignment.center,
+                child: transaction.transferPairId != null
+                    ? Icon(Icons.swap_horiz, size: 18, color: categoryColor)
+                    : Text(
+                        transaction.category?.icon.isNotEmpty == true
+                            ? transaction.category!.icon
+                            : (amount >= 0 ? '↓' : '↑'),
+                        style: TextStyle(fontSize: 18, color: categoryColor),
+                      ),
               ),
-              const SizedBox(width: 10),
-            ],
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: categoryColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(SecuroRadius.md),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                transaction.category?.icon.isNotEmpty == true
-                    ? transaction.category!.icon
-                    : (amount >= 0 ? '↓' : '↑'),
-                style: TextStyle(fontSize: 18, color: categoryColor),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.description.isNotEmpty
-                        ? transaction.description
-                        : (transaction.payeeName ?? 'Transaction'),
-                    overflow: TextOverflow.ellipsis,
-                    style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  if (transaction.category != null ||
-                      transaction.payeeName != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        if (transaction.payeeName != null) transaction.payeeName!,
-                        if (transaction.category != null)
-                          transaction.category!.name,
-                      ].join(' · '),
-                      overflow: TextOverflow.ellipsis,
-                      style: text.bodySmall?.copyWith(color: colors.mutedForeground),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            transaction.description.isNotEmpty
+                                ? transaction.description
+                                : (transaction.payeeName ?? 'Transaction'),
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (transaction.status == TransactionStatus.pending) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.schedule, size: 13, color: colors.mutedForeground),
+                        ],
+                        if (transaction.recurringTransactionId != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.repeat, size: 13, color: colors.mutedForeground),
+                        ],
+                        if (transaction.attachmentCount > 0) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.attach_file, size: 13, color: colors.mutedForeground),
+                        ],
+                        if (transaction.isShared) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.people_outline, size: 13, color: colors.mutedForeground),
+                        ],
+                      ],
                     ),
+                    if (transaction.category != null ||
+                        transaction.payeeName != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (transaction.payeeName != null) transaction.payeeName!,
+                          if (transaction.category != null)
+                            transaction.category!.name,
+                        ].join(' · '),
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodySmall?.copyWith(color: colors.mutedForeground),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              formatSignedMoney(amount, currency: transaction.currency, locale: locale),
-              // Sign prefix (+/-) carries the meaning; Apple's own list-value
-              // convention (iOS Wallet) keeps amounts grayscale rather than
-              // color-coding income/expense.
-              style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                formatSignedMoney(amount, currency: transaction.currency, locale: locale),
+                // Sign prefix (+/-) carries the meaning; Apple's own list-value
+                // convention (iOS Wallet) keeps amounts grayscale rather than
+                // color-coding income/expense.
+                style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (canEdit && !selecting) ...[
+                const SizedBox(width: 2),
+                Pressable(
+                  onTap: () => _openActions(context, ref),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.more_vert, size: 18, color: colors.mutedForeground),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
