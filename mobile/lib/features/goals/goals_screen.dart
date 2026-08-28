@@ -7,7 +7,6 @@ import '../../core/format/money.dart';
 import '../../core/icons/lucide_icon_map.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/goal.dart';

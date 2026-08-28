@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Category, group, and goal icons are stored as a Lucide icon name string
 /// (e.g. `"utensils-crossed"`) — see `frontend/src/lib/category-icons.ts`,
@@ -7,7 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 /// so a category picked on the web looks identical on the phone rather than
 /// falling back to a generic dot.
 const Map<String, IconData> _lucideIconMap = {
-  'house': LucideIcons.home,
+  'house': LucideIcons.house,
   'lightbulb': LucideIcons.lightbulb,
   'droplets': LucideIcons.droplets,
   'flame': LucideIcons.flame,
@@ -62,13 +62,13 @@ const Map<String, IconData> _lucideIconMap = {
   'umbrella': LucideIcons.umbrella,
   'globe': LucideIcons.globe,
   'sparkles': LucideIcons.sparkles,
-  'circle-help': LucideIcons.helpCircle,
+  'circle-help': LucideIcons.circleHelp,
   // Category-group, split-group, and other non-category icon defaults.
   'folder': LucideIcons.folder,
   'users': LucideIcons.users,
   'flag': LucideIcons.flag,
   'target': LucideIcons.target,
-  'handshake': LucideIcons.heartHandshake,
+  'handshake': LucideIcons.handshake,
   'repeat': LucideIcons.repeat,
   'tag': LucideIcons.tag,
   'tune': LucideIcons.slidersHorizontal,
@@ -78,4 +78,4 @@ const Map<String, IconData> _lucideIconMap = {
 /// falling back to a neutral question mark for a name added to the web app's
 /// picker after this map was last updated.
 IconData lucideIcon(String? name) =>
-    _lucideIconMap[name] ?? LucideIcons.helpCircle;
+    _lucideIconMap[name] ?? LucideIcons.circleHelp;

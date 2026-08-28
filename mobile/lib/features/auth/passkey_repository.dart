@@ -29,6 +29,13 @@ class PasskeyRepository {
     return origin == null ? null : {'Origin': origin};
   }
 
+  Future<List<Map<String, dynamic>>> list() async {
+    final data = await _api.get<List<dynamic>>('/passkeys');
+    return data.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> delete(String id) => _api.delete<dynamic>('/passkeys/$id');
+
   Future<void> register({String name = 'Passkey'}) async {
     final headers = await _originHeader();
     final optionsResponse = await _api.post<Map<String, dynamic>>(

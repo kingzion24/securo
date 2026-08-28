@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../auth/auth_controller.dart';
+import '../settings/settings_screen.dart';
 import '../workspace/workspace_controller.dart';
 import 'nav_items.dart';
 
@@ -204,6 +205,12 @@ class _AccountFooter extends ConsumerWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(SecuroRadius.md),
             ),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+              );
+            },
             leading: CircleAvatar(
               radius: 15,
               backgroundColor: colors.accent,
