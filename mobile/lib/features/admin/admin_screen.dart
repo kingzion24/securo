@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
@@ -35,7 +36,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       title: 'Admin',
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            12,
+            context.responsive.pagePadding,
+            100,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,46 +189,39 @@ class _UsersSectionState extends ConsumerState<_UsersSection> {
         else if (_users!.isEmpty)
           const EmptyState(icon: Icons.people_outline, title: 'No users found')
         else
-          SecuroCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (var i = 0; i < _users!.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: colors.border),
-                  Pressable(
-                    onTap: () => _editUser(_users![i]),
-                    onLongPress: () => _deleteUser(_users![i]),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(_users![i].email,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium),
-                          ),
-                          if (_users![i].isSuperuser)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Text('Admin',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(color: colors.mutedForeground)),
-                            ),
-                          if (!_users![i].isActive)
-                            Text('Disabled',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(color: colors.destructive)),
-                        ],
-                      ),
-                    ),
+          GroupedPanel(
+            children: [
+              for (final user in _users!)
+                Pressable(
+                  onTap: () => _editUser(user),
+                  onLongPress: () => _deleteUser(user),
+                  child: GroupedRow(
+                    label: user.email,
+                    trailing: user.isSuperuser || !user.isActive
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (user.isSuperuser)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text('Admin',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(color: colors.mutedForeground)),
+                                ),
+                              if (!user.isActive)
+                                Text('Disabled',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(color: colors.destructive)),
+                            ],
+                          )
+                        : null,
                   ),
-                ],
-              ],
-            ),
+                ),
+            ],
           ),
       ],
     );
@@ -392,76 +391,73 @@ class _AppSettingsSectionState extends ConsumerState<_AppSettingsSection> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    return SecuroCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('New registrations allowed'),
+    return GroupedPanel(
+      children: [
+        GroupedRow(
+          label: 'New registrations allowed',
+          trailing: Switch(
             value: _registrationEnabled!,
             onChanged: (v) {
               setState(() => _registrationEnabled = v);
               _set('registration_enabled', v.toString());
             },
           ),
-          const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('Use bank category suggestions'),
-            subtitle: const Text('Off: only the rule engine categorizes synced transactions'),
+        ),
+        GroupedRow(
+          label: 'Use bank category suggestions',
+          subtitle: 'Off: only the rule engine categorizes synced transactions',
+          trailing: Switch(
             value: _useProviderCategories!,
             onChanged: (v) {
               setState(() => _useProviderCategories = v);
               _set('use_provider_categories', v.toString());
             },
           ),
-          const Divider(height: 1),
-          _PickerTile(
-            title: 'Credit card accounting',
-            value: _accountingMode,
-            options: const {'cash': 'Cash (statement date)', 'accrual': 'Accrual (purchase date)'},
-            onChanged: (v) {
-              setState(() => _accountingMode = v);
-              _set('credit_card_accounting_mode', v);
-            },
-          ),
-          const Divider(height: 1),
-          _PickerTile(
-            title: 'Number format',
-            value: _numberFormat,
-            options: const {
-              'auto': 'Auto (browser locale)',
-              'comma_dot': '1,234.56',
-              'dot_comma': '1.234,56',
-              'space_comma': '1 234,56',
-            },
-            onChanged: (v) {
-              setState(() => _numberFormat = v);
-              _set('number_format', v);
-            },
-          ),
-          const Divider(height: 1),
-          _PickerTile(
-            title: 'Date format',
-            value: _dateFormat,
-            options: const {
-              'auto': 'Auto (browser locale)',
-              'dmy': 'Day/Month/Year',
-              'mdy': 'Month/Day/Year',
-              'ymd': 'Year-Month-Day',
-            },
-            onChanged: (v) {
-              setState(() => _dateFormat = v);
-              _set('date_format', v);
-            },
-          ),
-        ],
-      ),
+        ),
+        _PickerRow(
+          title: 'Credit card accounting',
+          value: _accountingMode,
+          options: const {'cash': 'Cash (statement date)', 'accrual': 'Accrual (purchase date)'},
+          onChanged: (v) {
+            setState(() => _accountingMode = v);
+            _set('credit_card_accounting_mode', v);
+          },
+        ),
+        _PickerRow(
+          title: 'Number format',
+          value: _numberFormat,
+          options: const {
+            'auto': 'Auto (browser locale)',
+            'comma_dot': '1,234.56',
+            'dot_comma': '1.234,56',
+            'space_comma': '1 234,56',
+          },
+          onChanged: (v) {
+            setState(() => _numberFormat = v);
+            _set('number_format', v);
+          },
+        ),
+        _PickerRow(
+          title: 'Date format',
+          value: _dateFormat,
+          options: const {
+            'auto': 'Auto (browser locale)',
+            'dmy': 'Day/Month/Year',
+            'mdy': 'Month/Day/Year',
+            'ymd': 'Year-Month-Day',
+          },
+          onChanged: (v) {
+            setState(() => _dateFormat = v);
+            _set('date_format', v);
+          },
+        ),
+      ],
     );
   }
 }
 
-class _PickerTile extends StatelessWidget {
-  const _PickerTile({
+class _PickerRow extends StatelessWidget {
+  const _PickerRow({
     required this.title,
     required this.value,
     required this.options,
@@ -474,12 +470,9 @@ class _PickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = SecuroTheme.of(context);
-    return ListTile(
-      title: Text(title),
-      subtitle: Text(options[value] ?? value,
-          style: TextStyle(color: colors.mutedForeground)),
-      trailing: const Icon(Icons.chevron_right),
+    return GroupedRow(
+      label: title,
+      subtitle: options[value] ?? value,
       onTap: () async {
         final picked = await showPickerSheet<String>(
           context,
