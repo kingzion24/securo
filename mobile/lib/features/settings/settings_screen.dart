@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/currencies.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
+import '../../core/theme/theme_controller.dart';
+import '../../core/widgets/feedback.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
-import '../../core/widgets/pressable.dart';
 import '../admin/admin_screen.dart';
 import '../agents/agents_screen.dart';
 import '../auth/auth_controller.dart';
@@ -55,14 +57,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(passkeyRepositoryProvider).register();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Passkey added')));
+      showAppToast(context, 'Passkey added');
       setState(() => _loadingPasskeys = true);
       await _loadPasskeys();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not add passkey: $error')));
+      showAppToast(context, 'Could not add passkey: $error', isError: true);
     }
   }
 
@@ -73,8 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() => _passkeys = _passkeys?.where((p) => p['id'] != id).toList());
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not remove passkey: $error')));
+      showAppToast(context, 'Could not remove passkey: $error', isError: true);
     }
   }
 
@@ -93,12 +92,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _pickCurrency(List<String> choices, String current) async {
+    final picked = await showPickerSheet<String>(
+      context,
+      title: 'Display currency',
+      items: choices,
+      labelBuilder: (c) => c,
+      selected: current,
+    );
+    if (picked != null && picked != current) _setCurrency(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
+    final responsive = context.responsive;
     final auth = ref.watch(authControllerProvider);
     final user = auth.user;
     final origin = ref.watch(baseUrlProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final currentCurrency = user?.preferences.currencyDisplay ?? 'USD';
     // The server accepts a much longer, deployment-configured currency list
     // than this picker's common-case shortlist; if the account's current
@@ -113,238 +125,172 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(
-            16,
+            responsive.pagePadding,
             8,
-            16,
+            responsive.pagePadding,
             MediaQuery.of(context).padding.bottom + 40,
           ),
           sliver: SliverToBoxAdapter(
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle('Profile'),
-          SecuroCard(
-            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user?.label ?? '', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(
-                  user?.email ?? '',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: colors.mutedForeground),
+                GroupedSection(
+                  title: 'Profile',
+                  rows: [
+                    GroupedRow(
+                      label: user?.label ?? '',
+                      subtitle: user?.email,
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.sectionGap),
+                GroupedSection(
+                  title: 'Appearance',
+                  rows: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            label: Text('System'),
+                            icon: Icon(Icons.smartphone_outlined, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            label: Text('Light'),
+                            icon: Icon(Icons.light_mode_outlined, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            label: Text('Dark'),
+                            icon: Icon(Icons.dark_mode_outlined, size: 16),
+                          ),
+                        ],
+                        selected: {themeMode},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (s) =>
+                            ref.read(themeModeProvider.notifier).setMode(s.first),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.sectionGap),
+                GroupedSection(
+                  title: 'Display currency',
+                  rows: [
+                    GroupedRow(
+                      label: currentCurrency,
+                      trailing: _savingCurrency
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(Icons.unfold_more, size: 18, color: colors.mutedForeground),
+                      onTap: _savingCurrency
+                          ? null
+                          : () => _pickCurrency(currencyChoices, currentCurrency),
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.sectionGap),
+                Row(
+                  children: [
+                    const Expanded(child: SectionTitle('Passkeys')),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add a passkey',
+                      onPressed: _addPasskey,
+                    ),
+                  ],
+                ),
+                if (_loadingPasskeys)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_passkeyError != null)
+                  ErrorState(message: _passkeyError!, onRetry: _loadPasskeys)
+                else if (_passkeys!.isEmpty)
+                  const EmptyState(
+                    icon: Icons.fingerprint,
+                    title: 'No passkeys yet',
+                    message: 'Add one to sign in without a password.',
+                  )
+                else
+                  GroupedPanel(
+                    children: [
+                      for (final passkey in _passkeys!)
+                        GroupedRow(
+                          leadingIcon: Icons.fingerprint,
+                          label: passkey['name'] as String? ?? 'Passkey',
+                          trailing: IconButton(
+                            icon: Icon(Icons.close, size: 18, color: colors.mutedForeground),
+                            onPressed: () => _removePasskey(passkey['id'] as String),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
+                  ),
+                SizedBox(height: responsive.sectionGap),
+                GroupedSection(
+                  title: 'Workspace',
+                  rows: [
+                    GroupedRow(
+                      leadingIcon: Icons.business_outlined,
+                      label: 'Workspace settings',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const WorkspaceSettingsScreen()),
+                      ),
+                    ),
+                    if (auth.isAgentsEnabled)
+                      GroupedRow(
+                        leadingIcon: Icons.smart_toy_outlined,
+                        label: 'AI agents',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const AgentsScreen()),
+                        ),
+                      ),
+                    if (user?.isSuperuser == true)
+                      GroupedRow(
+                        leadingIcon: Icons.admin_panel_settings_outlined,
+                        label: 'Admin settings',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const AdminScreen()),
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: responsive.sectionGap),
+                GroupedSection(
+                  title: 'Server',
+                  rows: [
+                    GroupedRow(
+                      leadingIcon: Icons.dns_outlined,
+                      label: Uri.parse(origin).host,
+                      onTap: () => showServerDialog(context, ref),
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.sectionGap),
+                GroupedPanel(
+                  children: [
+                    GroupedRow(
+                      leadingIcon: Icons.logout,
+                      iconColor: colors.destructive,
+                      label: 'Sign out',
+                      destructive: true,
+                      onTap: () => ref.read(authControllerProvider.notifier).logout(),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Expanded(child: SectionTitle('Display currency')),
-              if (_savingCurrency)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-          SecuroCard(
-            padding: EdgeInsets.zero,
-            child: SizedBox(
-              height: 44,
-              child: DropdownButtonHideUnderline(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: currentCurrency,
-                    items: [
-                      for (final code in currencyChoices)
-                        DropdownMenuItem(value: code, child: Text(code)),
-                    ],
-                    onChanged: _savingCurrency
-                        ? null
-                        : (value) {
-                            if (value != null) _setCurrency(value);
-                          },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Expanded(child: SectionTitle('Passkeys')),
-              IconButton(
-                icon: const Icon(Icons.add),
-                tooltip: 'Add a passkey',
-                onPressed: _addPasskey,
-              ),
-            ],
-          ),
-          if (_loadingPasskeys)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_passkeyError != null)
-            ErrorState(message: _passkeyError!, onRetry: _loadPasskeys)
-          else if (_passkeys!.isEmpty)
-            const EmptyState(
-              icon: Icons.fingerprint,
-              title: 'No passkeys yet',
-              message: 'Add one to sign in without a password.',
-            )
-          else
-            SecuroCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  for (var i = 0; i < _passkeys!.length; i++) ...[
-                    if (i > 0) Divider(height: 1, color: colors.border),
-                    _PasskeyTile(
-                      passkey: _passkeys![i],
-                      onDelete: () => _removePasskey(_passkeys![i]['id'] as String),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          const SizedBox(height: 24),
-          const SectionTitle('Workspace'),
-          SecuroCard(
-            child: Pressable(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const WorkspaceSettingsScreen()),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.business_outlined, size: 18, color: colors.mutedForeground),
-                  const SizedBox(width: 10),
-                  const Expanded(child: Text('Workspace settings')),
-                  Icon(Icons.chevron_right, color: colors.mutedForeground),
-                ],
-              ),
-            ),
-          ),
-          if (auth.isAgentsEnabled) ...[
-            const SizedBox(height: 24),
-            const SectionTitle('Agents'),
-            SecuroCard(
-              child: Pressable(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const AgentsScreen()),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.smart_toy_outlined, size: 18, color: colors.mutedForeground),
-                    const SizedBox(width: 10),
-                    const Expanded(child: Text('AI agents')),
-                    Icon(Icons.chevron_right, color: colors.mutedForeground),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          if (user?.isSuperuser == true) ...[
-            const SizedBox(height: 24),
-            const SectionTitle('Admin'),
-            SecuroCard(
-              child: Pressable(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const AdminScreen()),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.admin_panel_settings_outlined,
-                        size: 18, color: colors.mutedForeground),
-                    const SizedBox(width: 10),
-                    const Expanded(child: Text('Admin settings')),
-                    Icon(Icons.chevron_right, color: colors.mutedForeground),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          const SectionTitle('Server'),
-          SecuroCard(
-            child: Pressable(
-              onTap: () => showServerDialog(context, ref),
-              child: Row(
-                children: [
-                  Icon(Icons.dns_outlined, size: 18, color: colors.mutedForeground),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      Uri.parse(origin).host,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: colors.mutedForeground),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SecuroCard(
-            child: Pressable(
-              onTap: () => ref.read(authControllerProvider.notifier).logout(),
-              child: Row(
-                children: [
-                  Icon(Icons.logout, size: 18, color: colors.destructive),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Sign out',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: colors.destructive, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-            ),
-          ),
         ),
       ],
-    );
-  }
-}
-
-class _PasskeyTile extends StatelessWidget {
-  const _PasskeyTile({required this.passkey, required this.onDelete});
-  final Map<String, dynamic> passkey;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = SecuroTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          Icon(Icons.fingerprint, size: 18, color: colors.mutedForeground),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              passkey['name'] as String? ?? 'Passkey',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.close, size: 18, color: colors.mutedForeground),
-            onPressed: onDelete,
-          ),
-        ],
-      ),
     );
   }
 }

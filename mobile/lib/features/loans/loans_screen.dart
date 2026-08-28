@@ -10,6 +10,7 @@ import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
@@ -126,25 +127,27 @@ class _LoanTile extends StatelessWidget {
 
   Future<void> _addRepayment(BuildContext context) async {
     final controller = TextEditingController();
-    final amount = await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add repayment'),
+    final amount = await showAppDialog<double>(
+      context,
+      builder: (context) => AppDialog(
+        title: 'Add repayment',
         content: TextField(
           controller: controller,
           autofocus: true,
+          textAlign: TextAlign.center,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(hintText: 'Amount'),
         ),
         actions: [
-          TextButton(
+          AppDialogAction(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppDialogAction(
+            label: 'Add',
+            isDefaultAction: true,
             onPressed: () =>
                 Navigator.of(context).pop(double.tryParse(controller.text.trim())),
-            child: const Text('Add'),
           ),
         ],
       ),

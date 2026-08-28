@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/widgets/app_dialog.dart';
 import 'auth_controller.dart';
 
 /// Lets the user point the app at a different Securo deployment.
@@ -12,10 +13,10 @@ Future<void> showServerDialog(BuildContext context, WidgetRef ref) async {
   final controller = TextEditingController(text: ref.read(baseUrlProvider));
   final formKey = GlobalKey<FormState>();
 
-  final origin = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Server address'),
+  final origin = await showAppDialog<String>(
+    context,
+    builder: (context) => AppDialog(
+      title: 'Server address',
       content: Form(
         key: formKey,
         child: Column(
@@ -43,16 +44,17 @@ Future<void> showServerDialog(BuildContext context, WidgetRef ref) async {
         ),
       ),
       actions: [
-        TextButton(
+        AppDialogAction(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        FilledButton(
+        AppDialogAction(
+          label: 'Save',
+          isDefaultAction: true,
           onPressed: () {
             if (!formKey.currentState!.validate()) return;
             Navigator.of(context).pop(controller.text.trim());
           },
-          child: const Text('Save'),
         ),
       ],
     ),

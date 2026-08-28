@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../responsive.dart';
 import '../theme/theme.dart';
 
 /// The iOS presented-form chrome: a plain (non-large) nav bar with Cancel on
@@ -79,7 +80,12 @@ class FormScreen extends StatelessWidget {
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            12,
+            context.responsive.pagePadding,
+            40,
+          ),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: children,
         ),
@@ -109,18 +115,19 @@ class LabeledField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: colors.foreground,
+                  color: colors.mutedForeground,
+                  letterSpacing: 0.2,
                 ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           child,
         ],
       ),

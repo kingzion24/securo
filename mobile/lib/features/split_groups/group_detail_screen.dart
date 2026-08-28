@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format/money.dart';
 import '../../core/theme/theme.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/large_title_scroll.dart';
@@ -90,19 +91,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
   Future<void> _addMember() async {
     final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add member'),
-        content: TextField(controller: controller, autofocus: true),
+    final name = await showAppDialog<String>(
+      context,
+      builder: (context) => AppDialog(
+        title: 'Add member',
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textAlign: TextAlign.center,
+        ),
         actions: [
-          TextButton(
+          AppDialogAction(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppDialogAction(
+            label: 'Add',
+            isDefaultAction: true,
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Add'),
           ),
         ],
       ),

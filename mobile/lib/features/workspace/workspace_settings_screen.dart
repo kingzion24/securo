@@ -7,6 +7,7 @@ import '../../core/format/currencies.dart';
 import '../../core/icons/lucide_icon_map.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
@@ -151,11 +152,11 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
   Future<void> _invite() async {
     final emailController = TextEditingController();
     String role = 'editor';
-    final result = await showDialog<bool>(
-      context: context,
+    final result = await showAppDialog<bool>(
+      context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Invite member'),
+        builder: (context, setDialogState) => AppDialog(
+          title: 'Invite member',
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -179,13 +180,14 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
             ],
           ),
           actions: [
-            TextButton(
+            AppDialogAction(
+              label: 'Cancel',
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
             ),
-            TextButton(
+            AppDialogAction(
+              label: 'Invite',
+              isDefaultAction: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Invite'),
             ),
           ],
         ),

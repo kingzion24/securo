@@ -36,6 +36,152 @@ class SecuroCard extends StatelessWidget {
   }
 }
 
+/// The Apple Liquid Glass "unified panel" pattern: sibling rows share one
+/// rounded surface with hairline dividers between them, instead of each
+/// getting its own separately-bordered card. Reach for this any time a
+/// screen would otherwise stack several small `SecuroCard`s in a row —
+/// that fragmentation is what reads as a generic form-builder rather than
+/// an Apple-made screen.
+class GroupedPanel extends StatelessWidget {
+  const GroupedPanel({required this.children, super.key});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SecuroTheme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(SecuroRadius.card),
+        border: Border.all(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) Divider(height: 1, indent: 16, color: colors.border),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One row inside a [GroupedPanel] — the iOS Settings-cell shape: an
+/// optional leading icon, a label (with an optional secondary line), and a
+/// trailing widget (value text, a switch, a chevron, or nothing). `onTap`
+/// makes the whole row pressable with the platform ripple; omit it for a
+/// row that's just displaying a value.
+class GroupedRow extends StatelessWidget {
+  const GroupedRow({
+    required this.label,
+    this.subtitle,
+    this.leadingIcon,
+    this.iconColor,
+    this.trailing,
+    this.onTap,
+    this.destructive = false,
+    super.key,
+  });
+
+  final String label;
+  final String? subtitle;
+  final IconData? leadingIcon;
+  final Color? iconColor;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SecuroTheme.of(context);
+    final text = Theme.of(context).textTheme;
+    final labelColor = destructive ? colors.destructive : colors.foreground;
+
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          if (leadingIcon != null) ...[
+            Icon(leadingIcon, size: 19, color: iconColor ?? colors.mutedForeground),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: text.bodyMedium?.copyWith(
+                    color: labelColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: text.bodySmall?.copyWith(color: colors.mutedForeground),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          if (onTap != null && trailing == null) ...[
+            const SizedBox(width: 12),
+            Icon(Icons.chevron_right, size: 18, color: colors.mutedForeground),
+          ],
+        ],
+      ),
+    );
+
+    return onTap == null
+        ? content
+        : InkWell(onTap: onTap, child: content);
+  }
+}
+
+/// A section heading paired with its [GroupedPanel] — the vertical rhythm
+/// every settings-style screen in the app should share.
+class GroupedSection extends StatelessWidget {
+  const GroupedSection({required this.title, required this.rows, this.footer, super.key});
+
+  final String title;
+  final List<Widget> rows;
+
+  /// Small muted caption under the panel, iOS-settings style — used for a
+  /// one-line explanation of what the section does.
+  final String? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SecuroTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionTitle(title),
+        GroupedPanel(children: rows),
+        if (footer != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              footer!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: colors.mutedForeground),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// Section heading used above card groups.
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.title, {this.action, super.key});

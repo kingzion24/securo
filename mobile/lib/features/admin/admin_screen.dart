@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
@@ -102,8 +103,8 @@ class _UsersSectionState extends ConsumerState<_UsersSection> {
   }
 
   Future<void> _createUser() async {
-    final result = await showDialog<_UserFormResult>(
-      context: context,
+    final result = await showAppDialog<_UserFormResult>(
+      context,
       builder: (context) => const _UserFormDialog(),
     );
     if (result == null || !mounted) return;
@@ -122,8 +123,8 @@ class _UsersSectionState extends ConsumerState<_UsersSection> {
   Future<void> _editUser(AdminUser user) async {
     final currentUserId = ref.read(authControllerProvider).user?.id;
     final isSelf = user.id == currentUserId;
-    final result = await showDialog<_UserFormResult>(
-      context: context,
+    final result = await showAppDialog<_UserFormResult>(
+      context,
       builder: (context) => _UserFormDialog(user: user, disableToggles: isSelf),
     );
     if (result == null || !mounted) return;
@@ -265,8 +266,8 @@ class _UserFormDialogState extends State<_UserFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.user == null ? 'New user' : 'Edit user'),
+    return AppDialog(
+      title: widget.user == null ? 'New user' : 'Edit user',
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -274,6 +275,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
             TextField(
               controller: _email,
               autofocus: true,
+              textAlign: TextAlign.center,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(hintText: 'Email'),
             ),
@@ -281,6 +283,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
             TextField(
               controller: _password,
               obscureText: true,
+              textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: widget.user == null ? 'Password' : 'New password (optional)',
               ),
@@ -307,11 +310,13 @@ class _UserFormDialogState extends State<_UserFormDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        AppDialogAction(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
         ),
-        TextButton(
+        AppDialogAction(
+          label: 'Save',
+          isDefaultAction: true,
           onPressed: () {
             final email = _email.text.trim();
             if (email.isEmpty) return;
@@ -324,7 +329,6 @@ class _UserFormDialogState extends State<_UserFormDialog> {
               ),
             );
           },
-          child: const Text('Save'),
         ),
       ],
     );

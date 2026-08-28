@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../bloc/resource_list_cubit.dart';
+import '../responsive.dart';
 import '../theme/theme.dart';
 import 'large_title_scroll.dart';
 import 'panels.dart';
@@ -104,7 +105,12 @@ class _ResourceListView<T> extends StatelessWidget {
           ],
         _ => [
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 100),
+              padding: EdgeInsets.fromLTRB(
+                context.responsive.pagePadding,
+                12,
+                context.responsive.pagePadding,
+                bottomInset + 100,
+              ),
               sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

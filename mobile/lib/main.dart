@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/theme/theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'router.dart';
 
 void main() async {
@@ -25,16 +26,30 @@ class SecuroApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'Securo',
       debugShowCheckedModeBanner: false,
       theme: buildSecuroTheme(Brightness.light),
       darkTheme: buildSecuroTheme(Brightness.dark),
-      // The web app follows the OS preference until the user overrides it in
-      // settings; matching that here keeps the two installs consistent.
-      themeMode: ThemeMode.system,
+      // Follows the OS by default; overridable in Settings → Appearance,
+      // same choice the web app's own light/dark toggle offers.
+      themeMode: themeMode,
       routerConfig: router,
+      // Dynamic Type is respected (layouts use relative sizing, not fixed
+      // px), but clamped: an unclamped 200%+ accessibility text size can
+      // blow apart a dense finance-app layout in ways a reading app's
+      // single text column never hits. Mirrors `Responsive.textScale`'s
+      // clamp so every screen agrees on the ceiling.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(
+            MediaQuery.textScalerOf(context).scale(1).clamp(0.9, 1.35),
+          ),
+        ),
+        child: child!,
+      ),
     );
   }
 }

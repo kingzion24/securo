@@ -29,8 +29,8 @@ class NavSection {
 }
 
 /// The sidebar sections from the web app, in the same order. The dashboard is
-/// absent here for the same reason it is there: it is reached from the header,
-/// not the menu. On mobile it is the first tab in the bottom bar.
+/// absent here for the same reason it is there: it is reached from the
+/// drawer's own header (tapping the logo), not listed as a menu item.
 const navSections = <NavSection>[
   NavSection('Accounts', [
     NavLink(

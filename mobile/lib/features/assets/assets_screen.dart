@@ -10,6 +10,7 @@ import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
@@ -117,11 +118,11 @@ class _AssetTile extends StatelessWidget {
     final price = TextEditingController(
       text: asset.lastPrice != null ? asset.lastPrice!.toStringAsFixed(2) : '',
     );
-    final result = await showDialog<bool>(
-      context: context,
+    final result = await showAppDialog<bool>(
+      context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Trade ${asset.ticker ?? asset.name}'),
+        builder: (context, setDialogState) => AppDialog(
+          title: 'Trade ${asset.ticker ?? asset.name}',
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -137,25 +138,28 @@ class _AssetTile extends StatelessWidget {
               TextField(
                 controller: quantity,
                 autofocus: true,
+                textAlign: TextAlign.center,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(hintText: 'Quantity'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: price,
+                textAlign: TextAlign.center,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(hintText: 'Price per unit'),
               ),
             ],
           ),
           actions: [
-            TextButton(
+            AppDialogAction(
+              label: 'Cancel',
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
             ),
-            TextButton(
+            AppDialogAction(
+              label: 'Record',
+              isDefaultAction: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Record'),
             ),
           ],
         ),
