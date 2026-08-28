@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # The API speaks snake_case; Dart fields stay camelCase. Setting this
+          # globally means models only need an explicit @JsonKey where the
+          # mechanical conversion gets it wrong (e.g. `is_2fa_enabled`).
+          field_rename: snake
+          explicit_to_json: true
+          create_to_json: true

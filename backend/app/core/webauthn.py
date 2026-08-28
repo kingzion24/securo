@@ -12,12 +12,27 @@ domain are then rejected rather than silently issuing credentials the browser
 will refuse.
 """
 
+import base64
 from dataclasses import dataclass
 from ipaddress import ip_address
 
 from fastapi import HTTPException, Request, status
 
 from app.core.config import get_settings
+
+ANDROID_ORIGIN_PREFIX = "android:apk-key-hash:"
+
+
+def _android_apk_key_hash(fingerprint: str) -> str:
+    """`AA:BB:...` (as `keytool` and assetlinks.json print it) to the unpadded
+    base64url hash Android puts on the end of an `android:apk-key-hash:` origin."""
+    raw = bytes.fromhex(fingerprint.strip().replace(":", ""))
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _allowed_android_origins(settings) -> set[str]:
+    fingerprints = [f for f in settings.webauthn_android_cert_fingerprints.split(",") if f.strip()]
+    return {ANDROID_ORIGIN_PREFIX + _android_apk_key_hash(f) for f in fingerprints}
 
 
 @dataclass(frozen=True)
@@ -112,6 +127,24 @@ def resolve_webauthn_context(request: Request) -> WebAuthnContext:
     """
     settings = get_settings()
     origin = _request_origin(request)
+
+    if origin.startswith(ANDROID_ORIGIN_PREFIX):
+        if origin not in _allowed_android_origins(settings):
+            raise _error(
+                "passkey_origin_mismatch",
+                "This app build is not recognised for passkeys. Its signing certificate is not in "
+                "WEBAUTHN_ANDROID_CERT_FINGERPRINTS.",
+            )
+        rp_id = settings.webauthn_rp_id.strip().lower()
+        if not rp_id:
+            # There is no hostname to fall back on for a native origin, unlike
+            # the browser case below.
+            raise _error(
+                "passkey_origin_mismatch",
+                "WEBAUTHN_RP_ID must be set for native Android passkeys.",
+            )
+        return WebAuthnContext(rp_id=rp_id, origin=origin)
+
     scheme, hostname, _ = _split_origin(origin)
 
     if is_ip_literal(hostname):

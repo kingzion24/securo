@@ -20,6 +20,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Digital Asset Links statement for the Android app's native passkeys.
+    # Must be served at this exact path (Android's Credential Manager fetches
+    # it from here, not from /api) — the content itself lives in the backend
+    # so it stays driven by WEBAUTHN_ANDROID_CERT_FINGERPRINTS.
+    location = /.well-known/assetlinks.json {
+        resolver 127.0.0.11 valid=5s;
+        set $upstream ${BACKEND_URL};
+        proxy_pass $upstream/api/.well-known/assetlinks.json;
+        proxy_set_header Host $host;
+    }
+
     # Never cache index.html so new deployments are always picked up immediately
     location = /index.html {
         add_header Cache-Control "no-store, no-cache, must-revalidate";

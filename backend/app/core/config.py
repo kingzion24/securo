@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     # app is reached at exactly one origin and you want it enforced.
     webauthn_origin: str = ""
     webauthn_challenge_ttl_seconds: int = 300
+    # Lets the Android app's native Credential Manager complete passkey
+    # ceremonies without a browser. Android reports its origin as
+    # "android:apk-key-hash:<hash>" rather than an https:// origin, so it is
+    # only trusted when it matches one of these SHA-256 signing-cert
+    # fingerprints (comma-separated, colon-hex form as `keytool` prints it,
+    # e.g. one per signing key: debug and release both need an entry).
+    # Also published at /.well-known/assetlinks.json, which Android's
+    # Credential Manager checks before it will use the app for this domain.
+    webauthn_android_package_name: str = "com.zion24.securo"
+    webauthn_android_cert_fingerprints: str = ""
 
     # Defaults
     default_currency: str = "USD"  # fallback currency when user preference is unavailable
