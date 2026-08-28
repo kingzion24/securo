@@ -1,16 +1,17 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/format/money.dart';
 import '../../core/format/color.dart';
+import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
-import '../../core/widgets/translucent_app_bar.dart';
 import '../../models/transaction.dart';
 import '../workspace/workspace_controller.dart';
 import 'bloc/transactions_bloc.dart';
@@ -44,7 +45,6 @@ class _TransactionsView extends ConsumerStatefulWidget {
 class _TransactionsViewState extends ConsumerState<_TransactionsView> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
-  bool _searching = false;
 
   @override
   void initState() {
@@ -69,126 +69,81 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = SecuroTheme.of(context);
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final state = context.watch<TransactionsBloc>().state;
-
-    return Scaffold(
-      backgroundColor: colors.background,
-      extendBodyBehindAppBar: true,
-      appBar: TranslucentAppBar(
-        title: 'Transactions',
-        actions: [
-          IconButton(
-            icon: Icon(_searching ? Icons.close : Icons.search),
-            onPressed: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) {
-                _searchController.clear();
-                context
-                    .read<TransactionsBloc>()
-                    .add(const TransactionsSearched(''));
-              }
-            }),
-          ),
-        ],
-        bottom: _searching
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(56),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search transactions',
-                      prefixIcon: Icon(Icons.search, size: 20),
-                      isDense: true,
-                    ),
-                    onChanged: (value) => context
-                        .read<TransactionsBloc>()
-                        .add(TransactionsSearched(value)),
-                  ),
-                ),
-              )
-            : null,
-      ),
-      body: switch (state.status) {
-        TransactionsStatus.initial ||
-        TransactionsStatus.loading =>
-          const _TransactionsSkeleton(),
-        TransactionsStatus.failure when state.transactions.isEmpty =>
-          ListView(
-            padding: EdgeInsets.only(top: kToolbarHeight + 40),
-            children: [
-              ErrorState(
-                message: state.error ?? 'Could not load transactions',
-                onRetry: () => context
-                    .read<TransactionsBloc>()
-                    .add(const TransactionsRequested()),
-              ),
-            ],
-          ),
-        _ => _TransactionsList(
-            state: state,
-            locale: locale,
-            scrollController: _scrollController,
-          ),
-      },
-    );
-  }
-}
-
-class _TransactionsList extends StatelessWidget {
-  const _TransactionsList({
-    required this.state,
-    required this.scrollController,
-    this.locale,
-  });
-
-  final TransactionsState state;
-  final ScrollController scrollController;
-  final String? locale;
-
-  @override
-  Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
-    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    if (state.transactions.isEmpty) {
-      return ListView(
-        padding: EdgeInsets.only(top: kToolbarHeight + 40),
-        children: [
-          EmptyState(
-            icon: Icons.swap_horiz,
-            title: state.query.isEmpty
-                ? 'No transactions yet'
-                : 'No matches for "${state.query}"',
-            message: state.query.isEmpty
-                ? 'Transactions from your accounts show up here.'
-                : null,
-          ),
-        ],
-      );
-    }
-
-    final grouped = state.groupedByDate;
-    final days = grouped.keys.toList();
-
-    return RefreshIndicator(
+    return LargeTitleScrollView(
+      title: 'Transactions',
+      controller: _scrollController,
       onRefresh: () async {
         context.read<TransactionsBloc>().add(const TransactionsRefreshed());
         await Future<void>.delayed(const Duration(milliseconds: 400));
       },
-      child: ListView.builder(
-        controller: scrollController,
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          bottomInset + 100,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          sliver: SliverToBoxAdapter(
+            child: CupertinoSearchTextField(
+              controller: _searchController,
+              placeholder: 'Search transactions',
+              backgroundColor: colors.muted,
+              style: TextStyle(color: colors.foreground),
+              onChanged: (value) => context
+                  .read<TransactionsBloc>()
+                  .add(TransactionsSearched(value)),
+            ),
+          ),
         ),
-        itemCount: days.length + (state.status == TransactionsStatus.loadingMore ? 1 : 0),
+        ...switch (state.status) {
+          TransactionsStatus.initial ||
+          TransactionsStatus.loading =>
+            const [_TransactionsSkeleton()],
+          TransactionsStatus.failure when state.transactions.isEmpty => [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: ErrorState(
+                  message: state.error ?? 'Could not load transactions',
+                  onRetry: () => context
+                      .read<TransactionsBloc>()
+                      .add(const TransactionsRequested()),
+                ),
+              ),
+            ],
+          _ when state.transactions.isEmpty => [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
+                  icon: Icons.swap_horiz,
+                  title: state.query.isEmpty
+                      ? 'No transactions yet'
+                      : 'No matches for "${state.query}"',
+                  message: state.query.isEmpty
+                      ? 'Transactions from your accounts show up here.'
+                      : null,
+                ),
+              ),
+            ],
+          _ => _transactionSlivers(state: state, locale: locale),
+        },
+      ],
+    );
+  }
+}
+
+List<Widget> _transactionSlivers({
+  required TransactionsState state,
+  String? locale,
+}) {
+  final grouped = state.groupedByDate;
+  final days = grouped.keys.toList();
+
+  return [
+    SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      sliver: SliverList.builder(
+        itemCount:
+            days.length + (state.status == TransactionsStatus.loadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= days.length) {
             return const Padding(
@@ -204,6 +159,7 @@ class _TransactionsList extends StatelessWidget {
           }
           final day = days[index];
           final txs = grouped[day]!;
+          final colors = SecuroTheme.of(context);
           return Padding(
             padding: const EdgeInsets.only(bottom: 20),
             child: Column(
@@ -235,20 +191,20 @@ class _TransactionsList extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  ];
+}
 
-  String _dayLabel(String isoDate, String? locale) {
-    final date = DateTime.tryParse(isoDate);
-    if (date == null) return isoDate;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final that = DateTime(date.year, date.month, date.day);
-    final diff = today.difference(that).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    return DateFormat.yMMMd(locale).format(date);
-  }
+String _dayLabel(String isoDate, String? locale) {
+  final date = DateTime.tryParse(isoDate);
+  if (date == null) return isoDate;
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final that = DateTime(date.year, date.month, date.day);
+  final diff = today.difference(that).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  return DateFormat.yMMMd(locale).format(date);
 }
 
 class _TransactionTile extends StatelessWidget {
@@ -318,55 +274,56 @@ class _TransactionTile extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               formatSignedMoney(amount, currency: transaction.currency, locale: locale),
-              style: text.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: amount < 0 ? colors.foreground : colors.chart3,
-              ),
+              // Sign prefix (+/-) carries the meaning; Apple's own list-value
+              // convention (iOS Wallet) keeps amounts grayscale rather than
+              // color-coding income/expense.
+              style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
       ),
     );
   }
-
 }
 
 class _TransactionsSkeleton extends StatelessWidget {
   const _TransactionsSkeleton();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          24,
-        ),
-        children: [
-          for (var g = 0; g < 3; g++) ...[
-            const ShimmerBox(width: 80, height: 16),
-            const SizedBox(height: 8),
-            SecuroCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  for (var i = 0; i < 2; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const ShimmerBox(width: 40, height: 40, radius: 10),
-                        const SizedBox(width: 12),
-                        const Expanded(child: ShimmerBox(height: 14)),
-                        const SizedBox(width: 12),
-                        const ShimmerBox(width: 60, height: 14),
+  Widget build(BuildContext context) => SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            children: [
+              for (var g = 0; g < 3; g++) ...[
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: ShimmerBox(width: 80, height: 16),
+                ),
+                const SizedBox(height: 8),
+                SecuroCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < 2; i++) ...[
+                        if (i > 0) const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const ShimmerBox(width: 40, height: 40, radius: 10),
+                            const SizedBox(width: 12),
+                            const Expanded(child: ShimmerBox(height: 14)),
+                            const SizedBox(width: 12),
+                            const ShimmerBox(width: 60, height: 14),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ],
+          ),
+        ),
       );
 }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format/money.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../models/dashboard.dart';
 import '../workspace/workspace_controller.dart';
@@ -19,49 +20,50 @@ class DashboardScreen extends ConsumerWidget {
     final locale = workspace?.locale;
     final summaryAsync = ref.watch(dashboardSummaryProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _refresh(ref),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => _refresh(ref),
-        child: summaryAsync.when(
+    return LargeTitleScrollView(
+      title: 'Dashboard',
+      onRefresh: () async => _refresh(ref),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: () => _refresh(ref),
+        ),
+      ],
+      slivers: [
+        summaryAsync.when(
           loading: () => const _DashboardSkeleton(),
-          error: (error, _) => ListView(
-            children: [
-              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-              ErrorState(
-                message: '$error',
-                onRetry: () => _refresh(ref),
-              ),
-            ],
+          error: (error, _) => SliverFillRemaining(
+            hasScrollBody: false,
+            child: ErrorState(
+              message: '$error',
+              onRetry: () => _refresh(ref),
+            ),
           ),
-          data: (summary) => ListView(
+          data: (summary) => SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              _SummaryGrid(summary: summary, locale: locale),
-              const SizedBox(height: 24),
-              const SectionTitle('Balance this month'),
-              _BalanceChart(currency: summary.primaryCurrency, locale: locale),
-              const SizedBox(height: 24),
-              const SectionTitle('Spending by category'),
-              _SpendingPanel(
-                currency: summary.primaryCurrency,
-                locale: locale,
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SummaryGrid(summary: summary, locale: locale),
+                  const SizedBox(height: 24),
+                  const SectionTitle('Balance this month'),
+                  _BalanceChart(currency: summary.primaryCurrency, locale: locale),
+                  const SizedBox(height: 24),
+                  const SectionTitle('Spending by category'),
+                  _SpendingPanel(
+                    currency: summary.primaryCurrency,
+                    locale: locale,
+                  ),
+                  const SizedBox(height: 24),
+                  const SectionTitle('Income vs expenses'),
+                  _TrendChart(currency: summary.primaryCurrency, locale: locale),
+                ],
               ),
-              const SizedBox(height: 24),
-              const SectionTitle('Income vs expenses'),
-              _TrendChart(currency: summary.primaryCurrency, locale: locale),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -658,26 +660,30 @@ class _DashboardSkeleton extends StatelessWidget {
   const _DashboardSkeleton();
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          for (var row = 0; row < 2; row++) ...[
-            if (row > 0) const SizedBox(height: 12),
-            Row(
-              children: [
-                for (var col = 0; col < 2; col++) ...[
-                  if (col > 0) const SizedBox(width: 12),
-                  const Expanded(
-                    child: SecuroCard(child: ShimmerBox(height: 56)),
-                  ),
-                ],
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            children: [
+              for (var row = 0; row < 2; row++) ...[
+                if (row > 0) const SizedBox(height: 12),
+                Row(
+                  children: [
+                    for (var col = 0; col < 2; col++) ...[
+                      if (col > 0) const SizedBox(width: 12),
+                      const Expanded(
+                        child: SecuroCard(child: ShimmerBox(height: 56)),
+                      ),
+                    ],
+                  ],
+                ),
               ],
-            ),
-          ],
-          const SizedBox(height: 24),
-          const SecuroCard(child: ShimmerBox(height: 150)),
-          const SizedBox(height: 24),
-          const SecuroCard(child: ShimmerBox(height: 150)),
-        ],
+              const SizedBox(height: 24),
+              const SecuroCard(child: ShimmerBox(height: 150)),
+              const SizedBox(height: 24),
+              const SecuroCard(child: ShimmerBox(height: 150)),
+            ],
+          ),
+        ),
       );
 }

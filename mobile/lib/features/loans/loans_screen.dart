@@ -43,7 +43,6 @@ class _LoanTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
-    final accent = loan.theyOweMe ? colors.chart3 : colors.destructive;
 
     return Pressable(
       onTap: () {},
@@ -55,14 +54,17 @@ class _LoanTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
+                color: colors.muted,
                 borderRadius: BorderRadius.circular(SecuroRadius.md),
               ),
               alignment: Alignment.center,
+              // The icon direction plus the "Owes you" / "You owe" label
+              // already say who owes whom; a red/green accent on top of that
+              // would be decorative, not informative.
               child: Icon(
                 loan.theyOweMe ? Icons.call_received : Icons.call_made,
                 size: 18,
-                color: accent,
+                color: colors.mutedForeground,
               ),
             ),
             const SizedBox(width: 12),
@@ -94,7 +96,7 @@ class _LoanTile extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600, color: accent),
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),

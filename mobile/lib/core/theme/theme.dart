@@ -1,7 +1,40 @@
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'tokens.dart';
+
+/// Apple's two type disciplines applied app-wide: large titles get *negative*
+/// tracking (letters read too far apart at big sizes otherwise; body stays
+/// untouched), and every style carries tabular figures, so a column of
+/// amounts lines up digit-for-digit instead of each row reflowing to its own
+/// width. Tabular figures are a no-op on non-digit glyphs, so this is safe to
+/// apply blanket rather than hunting down every money `Text`.
+TextTheme _appleType(TextTheme base) {
+  TextStyle? tabular(TextStyle? style) =>
+      style?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+  TextStyle? tighten(TextStyle? style, double tracking) => tabular(
+        style?.copyWith(letterSpacing: tracking * (style.fontSize ?? 16)),
+      );
+
+  return base.copyWith(
+    displayLarge: tighten(base.displayLarge, -0.02),
+    displayMedium: tighten(base.displayMedium, -0.02),
+    displaySmall: tighten(base.displaySmall, -0.02),
+    headlineLarge: tighten(base.headlineLarge, -0.02),
+    headlineMedium: tighten(base.headlineMedium, -0.015),
+    headlineSmall: tighten(base.headlineSmall, -0.015),
+    titleLarge: tighten(base.titleLarge, -0.01),
+    titleMedium: tighten(base.titleMedium, -0.005),
+    titleSmall: tabular(base.titleSmall),
+    bodyLarge: tabular(base.bodyLarge),
+    bodyMedium: tabular(base.bodyMedium),
+    bodySmall: tabular(base.bodySmall),
+    labelLarge: tabular(base.labelLarge),
+    labelMedium: tabular(base.labelMedium),
+    labelSmall: tabular(base.labelSmall),
+  );
+}
 
 /// Exposes the raw token set to widgets, so they can reach for a colour the
 /// Material [ColorScheme] has no slot for (chart series, sidebar, muted text)
@@ -29,9 +62,10 @@ ThemeData buildSecuroTheme(Brightness brightness) {
 
   // index.css declares `font-family: 'Geist', 'Inter', system-ui`. Geist is not
   // in the google_fonts catalogue, so this uses the web app's own next choice.
-  final textTheme = GoogleFonts.interTextTheme(
-    ThemeData(brightness: brightness).textTheme,
-  ).apply(bodyColor: c.foreground, displayColor: c.foreground);
+  final textTheme = _appleType(
+    GoogleFonts.interTextTheme(ThemeData(brightness: brightness).textTheme)
+        .apply(bodyColor: c.foreground, displayColor: c.foreground),
+  );
 
   final scheme = ColorScheme(
     brightness: brightness,
@@ -76,7 +110,7 @@ ThemeData buildSecuroTheme(Brightness brightness) {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(SecuroRadius.xl),
+        borderRadius: BorderRadius.circular(SecuroRadius.card),
         side: BorderSide(color: c.border),
       ),
     ),
@@ -168,7 +202,7 @@ ThemeData buildSecuroTheme(Brightness brightness) {
       dragHandleColor: c.border,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(SecuroRadius.xl2),
+          top: Radius.circular(SecuroRadius.panel),
         ),
       ),
     ),

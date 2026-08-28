@@ -7,9 +7,9 @@ import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
-import '../../core/widgets/translucent_app_bar.dart';
 import '../../models/account.dart';
 import '../workspace/workspace_controller.dart';
 import 'account_type.dart';
@@ -38,49 +38,48 @@ class _AccountsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = SecuroTheme.of(context);
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final displayCurrency = ref.watch(displayCurrencyProvider);
     final bloc = context.watch<AccountsBloc>();
     final state = bloc.state;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      extendBodyBehindAppBar: true,
-      appBar: TranslucentAppBar(
-        title: 'Accounts',
-        actions: [
-          IconButton(
-            icon: Icon(
-              state.includeClosed
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-            ),
-            tooltip: state.includeClosed
-                ? 'Hide closed accounts'
-                : 'Show closed accounts',
-            onPressed: () =>
-                context.read<AccountsBloc>().add(const ClosedAccountsToggled()),
+    return LargeTitleScrollView(
+      title: 'Accounts',
+      onRefresh: () async {
+        context.read<AccountsBloc>().add(const AccountsRefreshed());
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      },
+      actions: [
+        IconButton(
+          icon: Icon(
+            state.includeClosed
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
           ),
-        ],
-      ),
-      body: switch (state.status) {
+          tooltip: state.includeClosed
+              ? 'Hide closed accounts'
+              : 'Show closed accounts',
+          onPressed: () =>
+              context.read<AccountsBloc>().add(const ClosedAccountsToggled()),
+        ),
+      ],
+      slivers: switch (state.status) {
         AccountsStatus.initial ||
         AccountsStatus.loading =>
-          const _AccountsSkeleton(),
-        AccountsStatus.failure => ListView(
-            padding: EdgeInsets.only(top: kToolbarHeight + 40),
-            children: [
-              ErrorState(
+          const [_AccountsSkeleton()],
+        AccountsStatus.failure => [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: ErrorState(
                 message: state.error ?? 'Could not load accounts',
                 onRetry: () =>
                     context.read<AccountsBloc>().add(const AccountsRequested()),
               ),
-            ],
-          ),
+            ),
+          ],
         AccountsStatus.success ||
         AccountsStatus.refreshing =>
-          _AccountsList(
+          _accountsSlivers(
             state: state,
             locale: locale,
             displayCurrency: displayCurrency,
@@ -90,80 +89,66 @@ class _AccountsView extends ConsumerWidget {
   }
 }
 
-class _AccountsList extends StatelessWidget {
-  const _AccountsList({
-    required this.state,
-    required this.displayCurrency,
-    this.locale,
-  });
-
-  final AccountsState state;
-  final String displayCurrency;
-  final String? locale;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = SecuroTheme.of(context);
-    final grouped = state.groupedByType;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    if (state.accounts.isEmpty) {
-      return ListView(
-        padding: EdgeInsets.only(top: kToolbarHeight + 40),
-        children: const [
-          EmptyState(
-            icon: Icons.account_balance_outlined,
-            title: 'No accounts yet',
-            message: 'Accounts you add or connect show up here.',
-          ),
-        ],
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<AccountsBloc>().add(const AccountsRefreshed());
-        // RefreshIndicator wants a future; the bloc's own status covers the
-        // actual load, so this just gives the spinner a moment to be seen.
-        await Future<void>.delayed(const Duration(milliseconds: 400));
-      },
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          bottomInset + 100,
+List<Widget> _accountsSlivers({
+  required AccountsState state,
+  required String displayCurrency,
+  String? locale,
+}) {
+  if (state.accounts.isEmpty) {
+    return const [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: EmptyState(
+          icon: Icons.account_balance_outlined,
+          title: 'No accounts yet',
+          message: 'Accounts you add or connect show up here.',
         ),
-        children: [
-          for (final entry in grouped.entries) ...[
-            _TypeHeader(
-              type: entry.key,
-              total: state.totalByType(entry.key),
-              currency: displayCurrency,
-              locale: locale,
-            ),
-            const SizedBox(height: 8),
-            SecuroCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  for (var i = 0; i < entry.value.length; i++) ...[
-                    if (i > 0) Divider(height: 1, color: colors.border),
-                    _AccountTile(
-                      account: entry.value[i],
-                      displayCurrency: displayCurrency,
-                      locale: locale,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ],
       ),
-    );
+    ];
   }
+
+  final grouped = state.groupedByType;
+  return [
+    SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      sliver: SliverToBoxAdapter(
+        child: Builder(
+          builder: (context) {
+            final colors = SecuroTheme.of(context);
+            return Column(
+              children: [
+                for (final entry in grouped.entries) ...[
+                  _TypeHeader(
+                    type: entry.key,
+                    total: state.totalByType(entry.key),
+                    currency: displayCurrency,
+                    locale: locale,
+                  ),
+                  const SizedBox(height: 8),
+                  SecuroCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < entry.value.length; i++) ...[
+                          if (i > 0) Divider(height: 1, color: colors.border),
+                          _AccountTile(
+                            account: entry.value[i],
+                            displayCurrency: displayCurrency,
+                            locale: locale,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  ];
 }
 
 class _TypeHeader extends StatelessWidget {
@@ -293,7 +278,7 @@ class _AccountTile extends StatelessWidget {
               formatMoney(balance, currency: balanceCurrency, locale: locale),
               style: text.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: balance < 0 ? colors.destructive : colors.foreground,
+                color: colors.foreground,
               ),
             ),
           ],
@@ -327,39 +312,41 @@ class _AccountsSkeleton extends StatelessWidget {
   const _AccountsSkeleton();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          24,
-        ),
-        children: [
-          for (var g = 0; g < 2; g++) ...[
-            const ShimmerBox(width: 120, height: 20),
-            const SizedBox(height: 10),
-            SecuroCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  for (var i = 0; i < 2; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const ShimmerBox(width: 40, height: 40, radius: 10),
-                        const SizedBox(width: 12),
-                        const Expanded(child: ShimmerBox(height: 14)),
-                        const SizedBox(width: 12),
-                        const ShimmerBox(width: 60, height: 14),
+  Widget build(BuildContext context) => SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            children: [
+              for (var g = 0; g < 2; g++) ...[
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: ShimmerBox(width: 120, height: 20),
+                ),
+                const SizedBox(height: 10),
+                SecuroCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < 2; i++) ...[
+                        if (i > 0) const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const ShimmerBox(width: 40, height: 40, radius: 10),
+                            const SizedBox(width: 12),
+                            const Expanded(child: ShimmerBox(height: 14)),
+                            const SizedBox(width: 12),
+                            const ShimmerBox(width: 60, height: 14),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ],
+          ),
+        ),
       );
 }
 

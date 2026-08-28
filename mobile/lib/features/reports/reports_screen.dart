@@ -1,16 +1,15 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/format/money.dart';
 import '../../core/format/color.dart';
+import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
-import '../../core/theme/tokens.dart';
+import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
-import '../../core/widgets/pressable.dart';
-import '../../core/widgets/translucent_app_bar.dart';
 import '../../models/report.dart';
 import '../workspace/workspace_controller.dart';
 import 'bloc/reports_bloc.dart';
@@ -38,50 +37,49 @@ class _ReportsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = SecuroTheme.of(context);
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final state = context.watch<ReportsBloc>().state;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      extendBodyBehindAppBar: true,
-      appBar: const TranslucentAppBar(title: 'Reports'),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          context.read<ReportsBloc>().add(const ReportsRefreshed());
-          await Future<void>.delayed(const Duration(milliseconds: 400));
-        },
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-            16,
-            bottomInset + 100,
+    return LargeTitleScrollView(
+      title: 'Reports',
+      onRefresh: () async {
+        context.read<ReportsBloc>().add(const ReportsRefreshed());
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      },
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _KindSelector(selected: state.kind),
+                const SizedBox(height: 20),
+                switch (state.status) {
+                  ReportsStatus.loading => const _ReportSkeleton(),
+                  ReportsStatus.failure => ErrorState(
+                      message: state.error ?? 'Could not load this report',
+                      onRetry: () => context
+                          .read<ReportsBloc>()
+                          .add(ReportKindSelected(state.kind)),
+                    ),
+                  ReportsStatus.success => _ReportBody(
+                      report: state.report!,
+                      locale: locale,
+                    ),
+                },
+              ],
+            ),
           ),
-          children: [
-            _KindSelector(selected: state.kind),
-            const SizedBox(height: 20),
-            switch (state.status) {
-              ReportsStatus.loading => const _ReportSkeleton(),
-              ReportsStatus.failure => ErrorState(
-                  message: state.error ?? 'Could not load this report',
-                  onRetry: () => context
-                      .read<ReportsBloc>()
-                      .add(ReportKindSelected(state.kind)),
-                ),
-              ReportsStatus.success => _ReportBody(
-                  report: state.report!,
-                  locale: locale,
-                ),
-            },
-          ],
         ),
-      ),
+      ],
     );
   }
 }
 
+/// The real iOS sliding segmented control, not a hand-rolled pill row — the
+/// thumb glides between segments with the platform's own spring, not a
+/// custom `AnimatedContainer` guess at one.
 class _KindSelector extends StatelessWidget {
   const _KindSelector({required this.selected});
 
@@ -90,53 +88,32 @@ class _KindSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colors.muted,
-        borderRadius: BorderRadius.circular(SecuroRadius.lg),
-      ),
-      child: Row(
-        children: [
-          for (final kind in ReportKind.values)
-            Expanded(
-              child: Pressable(
-                onTap: () => context
-                    .read<ReportsBloc>()
-                    .add(ReportKindSelected(kind)),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: kind == selected ? colors.card : Colors.transparent,
-                    borderRadius: BorderRadius.circular(SecuroRadius.md),
-                    boxShadow: kind == selected
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ]
-                        : null,
+    return CupertinoSlidingSegmentedControl<ReportKind>(
+      groupValue: selected,
+      backgroundColor: colors.muted,
+      thumbColor: colors.card,
+      children: {
+        for (final kind in ReportKind.values)
+          kind: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text(
+              kind.label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight:
+                        kind == selected ? FontWeight.w700 : FontWeight.w500,
+                    color: kind == selected
+                        ? colors.foreground
+                        : colors.mutedForeground,
                   ),
-                  child: Text(
-                    kind.label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight:
-                              kind == selected ? FontWeight.w700 : FontWeight.w500,
-                          color: kind == selected
-                              ? colors.foreground
-                              : colors.mutedForeground,
-                        ),
-                  ),
-                ),
-              ),
             ),
-        ],
-      ),
+          ),
+      },
+      onValueChanged: (kind) {
+        if (kind != null) {
+          context.read<ReportsBloc>().add(ReportKindSelected(kind));
+        }
+      },
     );
   }
 }
@@ -169,17 +146,20 @@ class _ReportBody extends StatelessWidget {
         const SizedBox(height: 4),
         Row(
           children: [
+            // The arrow direction already says whether this went up or down;
+            // a green/red on top of it would be the "color as status" trap
+            // this UI otherwise avoids.
             Icon(
               positive ? Icons.arrow_upward : Icons.arrow_downward,
               size: 14,
-              color: positive ? colors.chart3 : colors.destructive,
+              color: colors.mutedForeground,
             ),
             const SizedBox(width: 4),
             Text(
               '${formatMoney(summary.changeAmount.abs(), currency: report.meta.currency, locale: locale)}'
               '${summary.changePercent != null ? ' (${formatPercent(summary.changePercent!.abs(), locale: locale)})' : ''}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: positive ? colors.chart3 : colors.destructive,
+                    color: colors.mutedForeground,
                     fontWeight: FontWeight.w600,
                   ),
             ),
@@ -309,7 +289,6 @@ class _BreakdownRow extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _ReportSkeleton extends StatelessWidget {

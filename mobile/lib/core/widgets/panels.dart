@@ -25,7 +25,7 @@ class SecuroCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.card,
-        borderRadius: BorderRadius.circular(SecuroRadius.xl),
+        borderRadius: BorderRadius.circular(SecuroRadius.card),
         border: Border.all(color: colors.border),
       ),
       clipBehavior: Clip.antiAlias,

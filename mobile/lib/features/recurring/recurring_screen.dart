@@ -110,7 +110,7 @@ class _RecurringTile extends StatelessWidget {
               formatSignedMoney(amount, currency: item.currency, locale: locale),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: amount < 0 ? colors.foreground : colors.chart3,
+                    color: colors.foreground,
                   ),
             ),
           ],

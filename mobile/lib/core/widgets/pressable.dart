@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 
 /// A tappable surface that scales down the instant a finger touches it, not
 /// on release — the response Apple's fluid-interfaces guidance calls the
-/// foundation everything else is built on. The scale is driven by a
-/// critically-damped spring (no overshoot, `damping 1.0`) that always starts
-/// from wherever the animation currently is, so a fast double-tap or a
-/// press-drag-off-and-back never jumps.
+/// foundation everything else is built on.
+///
+/// The scale is driven by a genuine physics [SpringSimulation] — critically
+/// damped (`bounce: 0`), not a fixed-duration tween approximating one — so it
+/// is truly interruptible: a fast double-tap or a press-drag-off-and-back
+/// re-targets from whatever the animation's *current* value and velocity are,
+/// with no visible jump or "brick wall" where the old motion cuts off.
 class Pressable extends StatefulWidget {
   const Pressable({
     required this.child,
@@ -31,19 +35,15 @@ class _PressableState extends State<Pressable>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
+  // Apple's own default for a UI move: no overshoot, ~0.3s response.
+  static final _spring = SpringDescription.withDurationAndBounce(
+    duration: const Duration(milliseconds: 300),
+  );
+
   @override
   void initState() {
     super.initState();
-    // A short, critically-damped tween approximates the spring well enough
-    // for a scale this small, without pulling in a physics simulation for
-    // every list tile on screen.
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-      reverseDuration: const Duration(milliseconds: 180),
-      lowerBound: 0,
-      upperBound: 1,
-    );
+    _controller = AnimationController(vsync: this, lowerBound: 0, upperBound: 1);
   }
 
   @override
@@ -57,12 +57,16 @@ class _PressableState extends State<Pressable>
 
   void _setPressed(bool pressed) {
     if (widget.onTap == null && widget.onLongPress == null) return;
-    if (_reduceMotion) return;
-    if (pressed) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
+    if (_reduceMotion) {
+      _controller.value = pressed ? 1 : 0;
+      return;
     }
+    // animateWith starts from the controller's current value and velocity,
+    // which is what makes a mid-flight reversal continuous instead of
+    // snapping to a new tween's start point.
+    _controller.animateWith(
+      SpringSimulation(_spring, _controller.value, pressed ? 1 : 0, 0),
+    );
   }
 
   @override

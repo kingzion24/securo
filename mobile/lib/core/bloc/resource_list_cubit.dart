@@ -7,11 +7,17 @@ enum ResourceListStatus { loading, refreshing, success, failure }
 
 @immutable
 class ResourceListState<T> {
+  // `items` is built in the initializer list rather than as a `= const []`
+  // default, because a literal default value on a generic-typed parameter is
+  // canonicalized once as `List<Never>` and shared across every
+  // instantiation of this class — it then fails at runtime the moment a real
+  // `List<T>` (e.g. from copyWith) has to coexist with it. Assigning here
+  // instead binds the empty list to this specific T.
   const ResourceListState({
     this.status = ResourceListStatus.loading,
-    this.items = const [],
+    List<T>? items,
     this.error,
-  });
+  }) : items = items ?? const [];
 
   final ResourceListStatus status;
   final List<T> items;
@@ -37,7 +43,13 @@ class ResourceListState<T> {
 /// reorder, optimistic edits) can graduate to its own Bloc later without
 /// touching anyone else's.
 class ResourceListCubit<T> extends Cubit<ResourceListState<T>> {
-  ResourceListCubit(this._fetch) : super(const ResourceListState()) {
+  // Explicit `<T>` matters here: an un-parameterized `const ResourceListState()`
+  // as a super-constructor argument left the type argument uninferred, and
+  // Dart's const-canonicalization defaulted it to `Never` — the initial
+  // state was silently `ResourceListState<Never>` regardless of what T
+  // actually was, and the first real emit (a `List<T>` from `_fetch`) threw
+  // a cast error.
+  ResourceListCubit(this._fetch) : super(ResourceListState<T>()) {
     load();
   }
 

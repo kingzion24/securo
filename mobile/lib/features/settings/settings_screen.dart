@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
+import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
-import '../../core/widgets/translucent_app_bar.dart';
 import '../auth/auth_controller.dart';
 import '../auth/server_dialog.dart';
 
@@ -109,17 +109,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ? _currencyOptions
         : [currentCurrency, ..._currencyOptions];
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      extendBodyBehindAppBar: true,
-      appBar: const TranslucentAppBar(title: 'Settings'),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          MediaQuery.of(context).padding.bottom + 40,
-        ),
+    return LargeTitleScrollView(
+      title: 'Settings',
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            MediaQuery.of(context).padding.bottom + 40,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionTitle('Profile'),
           SecuroCard(
@@ -254,7 +256,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ],
-      ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

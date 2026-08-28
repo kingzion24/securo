@@ -9,10 +9,11 @@ import '../auth/auth_controller.dart';
 import '../workspace/workspace_controller.dart';
 import 'idle_lock.dart';
 import 'nav_drawer.dart';
+import 'shell_scope.dart';
 
 /// Chrome around every signed-in screen: the bottom tab bar, the overflow
 /// drawer holding the rest of the web sidebar, and the idle-lock watcher.
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.child, super.key});
 
   final Widget child;
@@ -42,13 +43,20 @@ class AppShell extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
     final location = GoRouterState.of(context).matchedLocation;
     final workspace = ref.watch(currentWorkspaceProvider).valueOrNull;
 
     // A tab whose module the workspace has switched off should not be shown.
-    final tabs = _tabs.where((tab) {
+    final tabs = AppShell._tabs.where((tab) {
       if (workspace == null) return true;
       return switch (tab.path) {
         '/transactions' => workspace.hasModule('transactions'),
@@ -68,9 +76,10 @@ class AppShell extends ConsumerWidget {
           .idleLockMinutesOrDefault,
       onIdle: () => ref.read(authControllerProvider.notifier).lock(),
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: colors.background,
         drawer: const AppNavDrawer(),
-        body: child,
+        body: ShellScope(scaffoldKey: _scaffoldKey, child: widget.child),
         extendBody: true,
         // A translucent bar with content scrolling under it, not an opaque
         // strip that permanently claims the bottom of the screen — the

@@ -87,7 +87,10 @@ class SecuroColors {
     accentForeground: Color(0xFF4F46E5),
     destructive: Color(0xFFF43F5E),
     destructiveForeground: Color(0xFFFFFFFF),
-    border: Color(0xFFE8ECF1),
+    // A hairline, not a stroke: Apple's dividers and card outlines are a
+    // near-black wash at low alpha over the surface, not a flat opaque grey —
+    // it reads as a seam in the material rather than a drawn line.
+    border: Color(0x120F172A),
     input: Color(0xFFE8ECF1),
     ring: Color(0xFF6366F1),
     chart1: Color(0xFF6366F1),
@@ -119,7 +122,9 @@ class SecuroColors {
     accentForeground: Color(0xFFA5B4FC),
     destructive: Color(0xFFFB7185),
     destructiveForeground: Color(0xFF0C0D12),
-    border: Color(0xFF2A2D3A),
+    // Dark-mode hairline: a light wash at low alpha, mirroring the light
+    // theme's near-black one — same "seam in the material" read, inverted.
+    border: Color(0x1AFFFFFF),
     input: Color(0xFF2A2D3A),
     ring: Color(0xFF818CF8),
     // The dark block in index.css does not restate the chart tokens, so they
@@ -146,4 +151,15 @@ class SecuroRadius {
   static const double xl = base + 4;
   static const double xl2 = base + 8;
   static const double xl3 = base + 12;
+
+  // Named tiers from the Apple Liquid Glass skill — reach for these on new
+  // or updated surfaces so radius stops being picked ad hoc; the block above
+  // stays for the call sites already tuned against it.
+  static const double pill = 999;
+  static const double chip = 6;
+  static const double thumb = 12;
+  static const double card = 18;
+  static const double panel = 22;
+  static const double hero = 26;
+  static const double sheet = 16;
 }

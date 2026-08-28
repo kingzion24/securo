@@ -92,7 +92,7 @@ class _AssetTile extends StatelessWidget {
                     Text(
                       formatSignedMoney(gain, currency: currency, locale: locale),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: gain < 0 ? colors.destructive : colors.chart3,
+                            color: colors.mutedForeground,
                           ),
                     ),
                   ],

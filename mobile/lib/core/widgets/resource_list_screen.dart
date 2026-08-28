@@ -3,13 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../bloc/resource_list_cubit.dart';
 import '../theme/theme.dart';
+import 'large_title_scroll.dart';
 import 'panels.dart';
-import 'translucent_app_bar.dart';
 
 /// The shared chrome for every simple "fetch a list, show it" drawer screen:
-/// translucent app bar, pull-to-refresh, loading skeleton, error-with-retry,
-/// and an empty state — so each feature file only supplies what makes it
-/// different (the fetch call and one row builder).
+/// real iOS large-title nav, pull-to-refresh, loading skeleton,
+/// error-with-retry, and an empty state — so each feature file only supplies
+/// what makes it different (the fetch call and one row builder).
 class ResourceListScreen<T> extends StatelessWidget {
   const ResourceListScreen({
     required this.title,
@@ -77,59 +77,58 @@ class _ResourceListView<T> extends StatelessWidget {
     final state = context.watch<ResourceListCubit<T>>().state;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      extendBodyBehindAppBar: true,
-      appBar: TranslucentAppBar(title: title, actions: actions),
-      body: switch (state.status) {
-        ResourceListStatus.loading => const _ListSkeleton(),
-        ResourceListStatus.failure when state.items.isEmpty => ListView(
-            padding: EdgeInsets.only(top: kToolbarHeight + 40),
-            children: [
-              ErrorState(
+    return LargeTitleScrollView(
+      title: title,
+      actions: actions,
+      onRefresh: () => context.read<ResourceListCubit<T>>().refresh(),
+      slivers: switch (state.status) {
+        ResourceListStatus.loading => const [_ListSkeleton()],
+        ResourceListStatus.failure when state.items.isEmpty => [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: ErrorState(
                 message: state.error ?? 'Could not load this',
                 onRetry: () => context.read<ResourceListCubit<T>>().load(),
               ),
-            ],
-          ),
-        _ when state.items.isEmpty => ListView(
-            padding: EdgeInsets.only(top: kToolbarHeight + 40),
-            children: [
-              EmptyState(
+            ),
+          ],
+        _ when state.items.isEmpty => [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
                 icon: emptyIcon,
                 title: emptyTitle,
                 message: emptyMessage,
               ),
-            ],
-          ),
-        _ => RefreshIndicator(
-            onRefresh: () => context.read<ResourceListCubit<T>>().refresh(),
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-                16,
-                bottomInset + 100,
-              ),
-              children: [
-                if (header != null) ...[
-                  header!(context, state.items),
-                  const SizedBox(height: 20),
-                ],
-                SecuroCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < state.items.length; i++) ...[
-                        if (i > 0) Divider(height: 1, color: colors.border),
-                        itemBuilder(context, state.items[i]),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
             ),
-          ),
+          ],
+        _ => [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 100),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (header != null) ...[
+                      header!(context, state.items),
+                      const SizedBox(height: 20),
+                    ],
+                    SecuroCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < state.items.length; i++) ...[
+                            if (i > 0) Divider(height: 1, color: colors.border),
+                            itemBuilder(context, state.items[i]),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
       },
     );
   }
@@ -139,15 +138,10 @@ class _ListSkeleton extends StatelessWidget {
   const _ListSkeleton();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          kToolbarHeight + MediaQuery.of(context).padding.top + 24,
-          16,
-          24,
-        ),
-        children: [
-          SecuroCard(
+  Widget build(BuildContext context) => SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        sliver: SliverToBoxAdapter(
+          child: SecuroCard(
             padding: const EdgeInsets.all(14),
             child: Column(
               children: [
@@ -166,6 +160,6 @@ class _ListSkeleton extends StatelessWidget {
               ],
             ),
           ),
-        ],
+        ),
       );
 }
