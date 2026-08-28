@@ -54,6 +54,7 @@ import { LinkTransferDialog } from '@/components/link-transfer-dialog'
 import { BulkAddToGroupDialog, type BulkAddToGroupSubmission } from '@/components/bulk-add-to-group-dialog'
 import { TransactionsFilterBar } from '@/components/transactions-filter-bar'
 import { TransactionCalendarView } from '@/components/transaction-calendar-view'
+import { TransactionDayView } from '@/components/transaction-day-view'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { MobileTransactionRow } from '@/components/mobile-transaction-row'
@@ -145,10 +146,13 @@ export default function TransactionsPage() {
   const [pendingSeriesDeleteId, setPendingSeriesDeleteId] = useState<string | null>(null)
   const [formResetKey, setFormResetKey] = useState(0)
   const [duplicateDraft, setDuplicateDraft] = useState<TransactionEditPayload | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>(() => (
-    searchParams.get('view') === 'calendar' ? 'calendar' : 'list'
-  ))
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'day'>(() => {
+    const v = searchParams.get('view')
+    return v === 'calendar' || v === 'day' ? v : 'list'
+  })
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>(() => searchParams.get('day') ?? '')
+  const [dayDate, setDayDate] = useState<string>(() => searchParams.get('day_date') || new Date().toISOString().slice(0, 10))
+  const [dayAccountId, setDayAccountId] = useState<string>(() => searchParams.get('day_account') || 'all')
   const [filterPayee, setFilterPayee] = useState<string>(searchParams.get('payee_id') ?? '')
   const [filterGroupId, setFilterGroupId] = useState<string>(searchParams.get('group_id') ?? '')
   const [filterType, setFilterType] = useState<string>(searchParams.get('type') ?? '')
@@ -233,8 +237,11 @@ export default function TransactionsPage() {
     prevSearchRef.current = search
 
     const nextQ = searchParams.get('q') ?? ''
-    setViewMode(searchParams.get('view') === 'calendar' ? 'calendar' : 'list')
+    const nextView = searchParams.get('view')
+    setViewMode(nextView === 'calendar' || nextView === 'day' ? nextView : 'list')
     setCalendarSelectedDate(searchParams.get('day') ?? '')
+    setDayDate(searchParams.get('day_date') || new Date().toISOString().slice(0, 10))
+    setDayAccountId(searchParams.get('day_account') || 'all')
     setSearchInput(nextQ)
     setSearchQuery(nextQ)
     const tags = searchParams.get('tags');
@@ -273,8 +280,10 @@ export default function TransactionsPage() {
     const params = new URLSearchParams(
       [
         ['q', searchQuery],
-        ['view', viewMode === 'calendar' ? 'calendar' : ''],
+        ['view', viewMode !== 'list' ? viewMode : ''],
         ['day', viewMode === 'calendar' ? calendarSelectedDate : ''],
+        ['day_date', viewMode === 'day' ? dayDate : ''],
+        ['day_account', viewMode === 'day' && dayAccountId !== 'all' ? dayAccountId : ''],
         ['tags', tagFilters.join(',')],
         ['payee_id', filterPayee],
         ['group_id', filterGroupId],
@@ -300,6 +309,8 @@ export default function TransactionsPage() {
     searchQuery,
     viewMode,
     calendarSelectedDate,
+    dayDate,
+    dayAccountId,
     tagFilters,
     filterPayee,
     filterGroupId,
@@ -413,6 +424,20 @@ export default function TransactionsPage() {
     queryFn: () => transactions.calendar({
       month: `${calendarMonth}-01`,
       account_ids: calendarAccountIds.length === 1 ? calendarAccountIds : undefined,
+    }),
+  })
+
+  // Day view (issue: day-based transaction view with account picker) reuses
+  // the same calendar endpoint as Calendar view — a single day's items and
+  // ending balance are already exactly what it returns, just picked out of
+  // the surrounding month instead of rendered as a grid.
+  const dayMonth = dayDate.slice(0, 7)
+  const { data: dayCalendarData, isLoading: dayCalendarLoading } = useQuery({
+    queryKey: ['transactions', 'day-calendar', dayMonth, dayAccountId],
+    enabled: viewMode === 'day',
+    queryFn: () => transactions.calendar({
+      month: `${dayMonth}-01`,
+      account_ids: dayAccountId === 'all' ? undefined : [dayAccountId],
     }),
   })
 
@@ -1097,7 +1122,7 @@ export default function TransactionsPage() {
             <p className="text-sm font-semibold text-foreground truncate">{tx.description}</p>
             {tx.group_id && (
               <span
-                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900 px-1.5 py-0.5 rounded-full"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-full"
                 title={t('splitGroups.sharedRowTooltip')}
               >
                 {tx.is_shared && tx.parent_owner_name
@@ -1334,12 +1359,24 @@ export default function TransactionsPage() {
               },
               listLabel: t('transactions.listView'),
               calendarLabel: t('transactions.calendarView'),
+              dayLabel: t('transactions.dayView'),
             }}
             columnPicker={viewMode === 'list' ? <TransactionsColumnPicker state={grid} /> : null}
             exportLabel={exportLabel}
             exporting={exporting}
             onExport={handleExport}
-            onAdd={canWrite ? () => { setEditingTx(null); setDialogOpen(true) } : undefined}
+            onAdd={canWrite ? () => {
+              setEditingTx(null)
+              // Day view: prefill the date (and account, unless "All" is
+              // active) so adding a transaction while browsing a specific
+              // day/account doesn't default to today and the first account.
+              setDuplicateDraft(viewMode === 'day' ? {
+                date: dayDate,
+                ...(dayAccountId !== 'all' ? { account_id: dayAccountId } : {}),
+              } : null)
+              setFormResetKey((k) => k + 1)
+              setDialogOpen(true)
+            } : undefined}
             onDuplicate={duplicableTx ? () => handleDuplicateTransaction(duplicableTx) : undefined}
             onTransfer={canWrite ? () => setTransferDialogOpen(true) : undefined}
           />
@@ -1466,6 +1503,23 @@ export default function TransactionsPage() {
         />
       )}
 
+      {viewMode === 'day' && (
+        <TransactionDayView
+          date={dayDate}
+          onDateChange={setDayDate}
+          accountId={dayAccountId}
+          onAccountIdChange={setDayAccountId}
+          accounts={accountsList ?? []}
+          calendar={dayCalendarData}
+          isLoading={dayCalendarLoading}
+          locale={locale}
+          dateLocale={dateLocale}
+          mask={mask}
+          userCurrency={userCurrency}
+          onOpenTransaction={handleOpenCalendarTransaction}
+        />
+      )}
+
       {/* Table / Mobile Cards */}
       {viewMode === 'list' && (
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden mb-4">
@@ -1585,6 +1639,31 @@ export default function TransactionsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
+        )}
+        {/* Per-account expense breakdown: same filtered rows as the summary
+            below, just split by which account the spending came out of. */}
+        {!isLoading && data?.summary && data.summary.by_account.length > 0 && filteredItems.length > 0 && (
+          <div className="flex flex-col gap-1.5 border-t border-border bg-muted/30 px-4 py-2.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs text-muted-foreground">{t('transactions.summaryTotalExpenses')}</span>
+              <span className="text-sm font-semibold tabular-nums text-rose-500">
+                {mask(formatCurrency(data.summary.expense, data.summary.currency, locale))}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <span className="text-xs text-muted-foreground">{t('transactions.summaryByAccount')}</span>
+              {data.summary.by_account.map((row) => (
+                <span key={row.account_id} className="flex items-baseline gap-1.5 text-xs">
+                  <span className="text-muted-foreground">
+                    {accountById.get(row.account_id)?.name ?? t('transactions.summaryUnknownAccount')}
+                  </span>
+                  <span className="font-medium tabular-nums text-rose-500">
+                    {mask(formatCurrency(row.expense, data.summary!.currency, locale))}
+                  </span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
         {/* Filtered summary (issue #185): income / expenses / net across

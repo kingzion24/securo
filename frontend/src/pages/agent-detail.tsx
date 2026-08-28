@@ -11,6 +11,7 @@ import { agents } from '@/lib/api'
 import { AgentFormDialog } from '@/components/agents/agent-form-dialog'
 import { ChatPanel } from '@/components/agents/chat-panel'
 import { KnowledgeSection } from '@/components/agents/knowledge-section'
+import { WhatsNewSection } from '@/components/agents/whats-new-section'
 import { ToolsSection } from '@/components/agents/tools-section'
 import { useWorkspace } from '@/contexts/workspace-context'
 
@@ -171,6 +172,7 @@ export default function AgentDetailPage() {
         </TabsContent>
 
         <TabsContent value="knowledge" className="flex-1 overflow-y-auto px-4 py-3">
+          <WhatsNewSection agentId={id} />
           <KnowledgeSection agentId={id} />
         </TabsContent>
 

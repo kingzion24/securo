@@ -12,7 +12,7 @@ export function PageHeader({ section, title, action }: PageHeaderProps) {
         <p className="text-xs font-medium text-muted-foreground mb-0.5">
           {section}
         </p>
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-[-0.02em]">{title}</h1>
       </div>
       {action}
     </div>

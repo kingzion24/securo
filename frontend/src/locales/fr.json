@@ -555,7 +555,27 @@
     "calendarNoActivity": "Aucune activité ce mois-ci",
     "calendarNoMovements": "Aucun mouvement",
     "calendarActualNet": "Net réel",
-    "calendarTransfersExcluded": "Les virements ne comptent pas comme revenus ou dépenses"
+    "calendarTransfersExcluded": "Les virements ne comptent pas comme revenus ou dépenses",
+    "summaryTotalExpenses": "Total expenses",
+    "summaryByAccount": "By account",
+    "summaryUnknownAccount": "Unknown account",
+    "calendarPreviousSlide": "Previous",
+    "calendarNextSlide": "Next",
+    "calendarDaySlider": "Day breakdown",
+    "calendarTotalExpense": "Total expense",
+    "calendarNoAccountActivity": "No account activity this day",
+    "calendarMoneyIn": "Money in",
+    "calendarMoneyOut": "Money out",
+    "calendarMoneyLeftOver": "Left over",
+    "dayView": "Day",
+    "dayPrevious": "Previous day",
+    "dayNext": "Next day",
+    "dayPreviousAccount": "Previous account",
+    "dayNextAccount": "Next account",
+    "dayAllAccounts": "All",
+    "dayNoItems": "No expenses on this day",
+    "dayEndingBalance": "{{account}} balance (end of day)",
+    "dayTotalExpenses": "Total expenses"
   },
   "accounts": {
     "title": "Comptes",
@@ -854,6 +874,16 @@
     "confirmDeleteDescription": "La définition récurrente « {{description}} » sera définitivement supprimée. Les transactions existantes resteront, mais perdront leur lien récurrent. Cette action est irréversible."
   },
   "rules": {
+    "preview": "Aperçu",
+    "previewMatched": "{{matched}} correspondances",
+    "previewSummary": "{{matched}} transactions correspondent · {{changed}} seraient modifiées",
+    "previewSampleNote": "affichage des {{shown}} plus récentes",
+    "previewLoadMore": "Charger {{more}} de plus",
+    "previewNoChange": "aucun changement",
+    "previewEmpty": "Aucune transaction ne correspond à ces conditions",
+    "previewInactive": "règle inactive, rien ne change pour l'instant",
+    "previewNotAppliedToExisting": "non appliquée aux transactions existantes",
+    "previewError": "Impossible de charger l'aperçu",
     "section": "Automatisation",
     "packs": "Packs de règles",
     "packRuleCount": "{{count}} règles",
@@ -1378,6 +1408,8 @@
     "taxIdKind": "Type de document",
     "searchTaxIdKind": "Rechercher un document ou un pays…",
     "invalidTaxId": "Vérifiez ce document : il ne semble pas valide.",
+    "duplicateName": "Une personne portant ce nom existe déjà.",
+    "duplicateTaxId": "ce document est déjà sur cette personne.",
     "add": "Ajouter un bénéficiaire",
     "edit": "Modifier le bénéficiaire",
     "created": "Bénéficiaire créé",
@@ -1972,6 +2004,11 @@
         "title": "Aucune connexion pour l'instant",
         "subtitle": "Ajoutez une connexion pour pointer Securo vers votre Ollama local, OpenAI, Anthropic, ou tout point de terminaison compatible OpenAI."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

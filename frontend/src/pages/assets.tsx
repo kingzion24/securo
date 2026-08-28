@@ -121,7 +121,7 @@ function formatRelativeTime(dateInput: string | null | undefined, locale: string
 
 const ASSET_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
   real_estate: { icon: Home, color: 'text-blue-600', bg: 'bg-blue-100' },
-  vehicle: { icon: Car, color: 'text-violet-600', bg: 'bg-violet-100' },
+  vehicle: { icon: Car, color: 'text-rose-600', bg: 'bg-rose-100' },
   valuable: { icon: Gem, color: 'text-amber-600', bg: 'bg-amber-100' },
   investment: { icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100' },
   stock: { icon: LineChart, color: 'text-sky-600', bg: 'bg-sky-100' },
@@ -1058,16 +1058,16 @@ export default function AssetsPage() {
       />
 
       {/* Holdings (consolidated by ticker) vs. the buy/sell ledger (#235) */}
-      <div className="inline-flex items-center rounded-lg border border-border p-0.5 bg-muted/40">
+      <div className="inline-flex items-center rounded-full border border-border p-0.5 bg-muted/40">
         <button
           onClick={() => setActiveTab('holdings')}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'holdings' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${activeTab === 'holdings' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
         >
           {t('assets.tabHoldings')}
         </button>
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === 'transactions' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${activeTab === 'transactions' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
         >
           {t('assets.tabTransactions')}
         </button>
@@ -1719,7 +1719,7 @@ export default function AssetsPage() {
   )
 }
 
-const PORTFOLIO_COLORS = ['#6366F1', '#F43F5E', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16']
+const PORTFOLIO_COLORS = ['#0071e3', '#ff3b30', '#ff9500', '#34c759', '#5e5ce6', '#ff2d55', '#32ade6', '#a2845e']
 
 function PortfolioChart({ data, wallets, currency, locale: loc, dateLocale: dateLoc, mask }: {
   data: { assets: { id: string; name: string; type: string; group_id: string | null }[]; trend: Record<string, unknown>[]; total: number }
@@ -1835,12 +1835,12 @@ function PortfolioChart({ data, wallets, currency, locale: loc, dateLocale: date
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-foreground">{t('assets.portfolioValue')}</h3>
           <div className="flex flex-wrap items-center gap-2">
-            <div role="group" aria-label={t('assets.chartGroupMode')} className="inline-flex items-center rounded-lg border border-border p-0.5 bg-muted/40">
+            <div role="group" aria-label={t('assets.chartGroupMode')} className="inline-flex items-center rounded-full border border-border p-0.5 bg-muted/40">
               <button
                 type="button"
                 aria-pressed={mode === 'wallet'}
                 onClick={() => setMode('wallet')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${mode === 'wallet' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${mode === 'wallet' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {t('assets.chartByWallet')}
               </button>
@@ -1848,17 +1848,17 @@ function PortfolioChart({ data, wallets, currency, locale: loc, dateLocale: date
                 type="button"
                 aria-pressed={mode === 'asset'}
                 onClick={() => setMode('asset')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${mode === 'asset' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${mode === 'asset' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {t('assets.chartByAsset')}
               </button>
             </div>
-            <div role="group" aria-label={t('assets.chartDrawMode')} className="inline-flex items-center rounded-lg border border-border p-0.5 bg-muted/40">
+            <div role="group" aria-label={t('assets.chartDrawMode')} className="inline-flex items-center rounded-full border border-border p-0.5 bg-muted/40">
               <button
                 type="button"
                 aria-pressed={drawMode === 'stacked'}
                 onClick={() => setDrawMode('stacked')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${drawMode === 'stacked' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${drawMode === 'stacked' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {t('assets.chartStacked')}
               </button>
@@ -1866,7 +1866,7 @@ function PortfolioChart({ data, wallets, currency, locale: loc, dateLocale: date
                 type="button"
                 aria-pressed={drawMode === 'lines'}
                 onClick={() => setDrawMode('lines')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${drawMode === 'lines' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${drawMode === 'lines' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {t('assets.chartLines')}
               </button>
@@ -1986,7 +1986,7 @@ function renderAssetTradeDot(props: {
   }
   const hasBuy = trades.some(t => t.kind === 'buy')
   const hasSell = trades.some(t => t.kind === 'sell')
-  const color = hasSell && !hasBuy ? '#F43F5E' : hasBuy && !hasSell ? '#10B981' : '#6366F1'
+  const color = hasSell && !hasBuy ? '#F43F5E' : hasBuy && !hasSell ? '#10B981' : '#0071e3'
   return (
     <circle key={`td-${index}`} cx={cx} cy={cy} r={4} fill={color} stroke="var(--card)" strokeWidth={1.5} />
   )

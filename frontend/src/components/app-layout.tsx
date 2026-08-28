@@ -202,7 +202,10 @@ export function AppLayout() {
     <div className="min-h-screen bg-background">
       {locked && <LockScreen onUnlock={unlock} localAuthEnabled={localAuthEnabled} />}
       {/* Mobile header */}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-sidebar border-b border-sidebar-border px-4 lg:hidden">
+      {/* Glass nav (Apple Liquid Glass): frosted, not solid, since this
+          header sits sticky over scrolling content — the one case the
+          design system reserves backdrop-filter for. */}
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-sidebar/70 backdrop-blur-xl backdrop-saturate-[1.8] border-b border-sidebar-border px-4 lg:hidden">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="text-sidebar-muted hover:text-sidebar-foreground transition-colors"
@@ -401,7 +404,7 @@ export function AppLayout() {
                   className={cn(
                     'flex items-center gap-3 text-[13px] font-medium transition-all rounded-lg px-3 py-2',
                     isActive
-                      ? 'bg-primary/[0.08] text-primary border-l-[3px] border-primary pl-[9px]'
+                      ? 'bg-primary/10 text-primary font-semibold'
                       : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
                   )}
                 >

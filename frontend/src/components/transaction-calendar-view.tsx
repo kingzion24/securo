@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeftRight, CalendarDays, CircleDot, Clock, EyeClosed, Minus } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, ChevronLeft, ChevronRight, CircleDot, Clock, EyeClosed, Minus } from 'lucide-react'
 import type { Account, TransactionCalendarDay, TransactionCalendarItem, TransactionCalendarResponse } from '@/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AccountIcon } from '@/components/account-icon'
@@ -29,6 +29,38 @@ function compactCurrency(value: number, currency = 'USD', locale = 'en-US') {
 
 function signedAmount(item: TransactionCalendarItem) {
   return item.type === 'credit' ? Math.abs(item.amount) : -Math.abs(item.amount)
+}
+
+interface AccountDayTotals {
+  accountId: string
+  name: string
+  income: number
+  expense: number
+  diff: number
+}
+
+// Mirrors the server's actual_income/actual_expense filter (transaction_
+// calendar_service.py): settled, non-ignored, non-transfer items only, so
+// each account's numbers here sum back to the day's own actual totals.
+function accountDayBreakdown(day: TransactionCalendarDay, accountById: Map<string, Account>): AccountDayTotals[] {
+  const byAccount = new Map<string, { income: number; expense: number }>()
+  for (const item of day.items) {
+    if (item.kind !== 'actual' || item.is_ignored || item.is_transfer || !item.account_id) continue
+    const amount = Math.abs(item.amount_primary ?? item.amount)
+    const entry = byAccount.get(item.account_id) ?? { income: 0, expense: 0 }
+    if (item.type === 'credit') entry.income += amount
+    else entry.expense += amount
+    byAccount.set(item.account_id, entry)
+  }
+  return [...byAccount.entries()]
+    .map(([accountId, totals]) => ({
+      accountId,
+      name: accountById.get(accountId)?.name ?? accountId,
+      income: totals.income,
+      expense: totals.expense,
+      diff: totals.income - totals.expense,
+    }))
+    .sort((a, b) => b.expense - a.expense)
 }
 
 function displayDayNumber(date: string) {
@@ -398,7 +430,7 @@ function BalanceTrend({
 
 // The activity strip answers the other monthly question: how much came in and went
 // out each day. Actual amounts are solid bars around a zero axis; projected amounts
-// stack on top as dashed violet outlines so a forecasted bill never reads as settled.
+// stack on top as dashed indigo outlines so a forecasted bill never reads as settled.
 function ActivityBars({
   days,
   currency,
@@ -523,7 +555,7 @@ function ActivityBars({
                   strokeWidth="1"
                   strokeDasharray="3 2"
                   vectorEffect="non-scaling-stroke"
-                  className="fill-violet-500/10 stroke-violet-500 dark:stroke-violet-400"
+                  className="fill-indigo-500/10 stroke-indigo-500 dark:stroke-indigo-400"
                 />
               )}
               {actualExpenseH > 0 && (
@@ -544,7 +576,7 @@ function ActivityBars({
                   strokeWidth="1"
                   strokeDasharray="3 2"
                   vectorEffect="non-scaling-stroke"
-                  className="fill-violet-500/10 stroke-violet-500 dark:stroke-violet-400"
+                  className="fill-indigo-500/10 stroke-indigo-500 dark:stroke-indigo-400"
                 />
               )}
               {/* Full-height hit target: bars can be a couple of pixels tall, so the
@@ -607,14 +639,14 @@ function SegmentedToggle<T extends string>({
   label: string
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5 text-xs" role="group" aria-label={label}>
+    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-0.5 text-xs" role="group" aria-label={label}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            'rounded-md px-2.5 py-1 font-semibold text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40',
+            'rounded-full px-2.5 py-1 font-semibold text-muted-foreground transition-all duration-200 ease-[var(--ease-out-quart)] hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40',
             value === option.value && 'bg-card text-foreground shadow-sm dark:bg-background',
           )}
           aria-pressed={value === option.value}
@@ -812,7 +844,7 @@ function DayPreviewRow({
       className={cn(
         'flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] shadow-sm',
         item.kind === 'projected'
-          ? 'border border-dashed border-violet-400/70 bg-violet-500/5 dark:border-violet-400/50'
+          ? 'border border-dashed border-indigo-400/70 bg-indigo-500/5 dark:border-indigo-400/50'
           : 'bg-background/45 dark:bg-background/25',
       )}
     >
@@ -836,11 +868,11 @@ function DayPreviewRow({
 }
 
 // Activity cells report what actually moved: green income and red expense, real
-// amounts only. Projected amounts get a secondary violet line so a forecast never
+// amounts only. Projected amounts get a secondary indigo line so a forecast never
 // blends into settled money. A day with nothing at all gets a centred dash rather
 // than a sentence: in a quiet month the same string repeated 30 times is noise,
 // and the eye should land on the days that moved. A day whose only entry is a
-// projection is not empty, so it shows the violet figure and no dash.
+// projection is not empty, so it shows the indigo figure and no dash.
 function DayCellActivity({
   day,
   currency,
@@ -896,7 +928,7 @@ function DayCellActivity({
       {projectedParts.length > 0 && (
         <p
           title={t('transactions.calendarProjected')}
-          className="text-[11px] font-semibold tabular-nums text-violet-600 dark:text-violet-300"
+          className="text-[11px] font-semibold tabular-nums text-indigo-600 dark:text-indigo-300"
         >
           {projectedParts.join(' · ')}
         </p>
@@ -947,7 +979,7 @@ function BadgeDot({
         tone === 'income' && 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400',
         tone === 'expense' && 'border-rose-500/40 text-rose-600 dark:text-rose-400',
         tone === 'transfer' && 'border-sky-500/40 text-sky-600 dark:text-sky-400',
-        tone === 'projected' && 'border-violet-500/40 text-violet-600 dark:text-violet-300',
+        tone === 'projected' && 'border-indigo-500/40 text-indigo-600 dark:text-indigo-300',
       )}
     >
       {children ?? <CircleDot size={9} />}
@@ -1101,19 +1133,17 @@ function SelectedDayPanel({
 
       {metric === 'activity' && (
         <>
-          <div className="space-y-2 border-b border-border px-4 py-3">
-            <DayPanelRow
-              label={t('transactions.summaryIncome')}
-              value={mask(`+${formatCurrency(activity.actualIncome, currency, locale)}`)}
-              amount={activity.actualIncome}
-            />
-            <DayPanelRow
-              label={t('transactions.summaryExpenses')}
-              value={mask(`−${formatCurrency(activity.actualExpense, currency, locale)}`)}
-              amount={-activity.actualExpense}
+          <div className="border-b border-border px-4 py-3">
+            <DaySlider
+              day={day}
+              activity={activity}
+              currency={currency}
+              locale={locale}
+              mask={mask}
+              accountById={accountById}
             />
             {day.has_transfer && (
-              <p className="flex items-center gap-1.5 pt-0.5 text-xs text-muted-foreground">
+              <p className="flex items-center gap-1.5 pt-2 text-xs text-muted-foreground">
                 <ArrowLeftRight size={12} className="shrink-0 text-sky-600 dark:text-sky-400" />
                 {t('transactions.calendarTransfersExcluded')}
               </p>
@@ -1121,12 +1151,12 @@ function SelectedDayPanel({
           </div>
 
           {/* A second group of the same rows rather than a callout box. The
-              divider and the violet section label already say these figures are
+              divider and the indigo section label already say these figures are
               forecasts, and the amounts keep the colour of their direction so
               they read the same way as the projected rows listed below. */}
           {activity.hasProjected && (
             <div className="space-y-2 border-b border-border px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
                 {t('transactions.calendarProjected')}
               </p>
               {activity.projectedIncome > 0 && (
@@ -1176,6 +1206,143 @@ function SelectedDayPanel({
   )
 }
 
+// Three swipeable takes on the same selected day, cheapest question first:
+// "how much did I spend" (no comparison), "which account did it come out
+// of" (only accounts with actual activity that day), "what's the net
+// effect" (income vs expense vs the difference). Dots + chevrons for mouse/
+// keyboard, touch swipe for mobile — same content either way.
+function DaySlider({
+  day,
+  activity,
+  currency,
+  locale,
+  mask,
+  accountById,
+}: {
+  day: TransactionCalendarDay
+  activity: ReturnType<typeof dayActivity>
+  currency: string
+  locale: string
+  mask: (value: string) => string
+  accountById: Map<string, Account>
+}) {
+  const { t } = useTranslation()
+  const [slide, setSlide] = useState(0)
+  const touchStartX = useRef<number | null>(null)
+  const SLIDE_COUNT = 3
+
+  useEffect(() => {
+    setSlide(0)
+  }, [day.date])
+
+  const accounts = useMemo(() => accountDayBreakdown(day, accountById), [day, accountById])
+
+  const go = (delta: number) => setSlide((s) => Math.min(SLIDE_COUNT - 1, Math.max(0, s + delta)))
+
+  return (
+    <div
+      onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null }}
+      onTouchEnd={(event) => {
+        if (touchStartX.current == null) return
+        const dx = (event.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current
+        if (dx > 40) go(-1)
+        else if (dx < -40) go(1)
+        touchStartX.current = null
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          disabled={slide === 0}
+          aria-label={t('transactions.calendarPreviousSlide')}
+          className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="flex items-center gap-1" role="tablist" aria-label={t('transactions.calendarDaySlider')}>
+          {Array.from({ length: SLIDE_COUNT }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === slide}
+              aria-label={`${i + 1}/${SLIDE_COUNT}`}
+              onClick={() => setSlide(i)}
+              className={cn('h-1.5 w-1.5 rounded-full transition-colors', i === slide ? 'bg-primary' : 'bg-border hover:bg-muted-foreground/40')}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => go(1)}
+          disabled={slide === SLIDE_COUNT - 1}
+          aria-label={t('transactions.calendarNextSlide')}
+          className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {slide === 0 && (
+        <div className="py-2 text-center">
+          <p className="text-xs text-muted-foreground">{t('transactions.calendarTotalExpense')}</p>
+          <p className="text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">
+            {mask(formatCurrency(activity.actualExpense, currency, locale))}
+          </p>
+        </div>
+      )}
+
+      {slide === 1 && (
+        accounts.length === 0 ? (
+          <p className="py-3 text-center text-xs text-muted-foreground">{t('transactions.calendarNoAccountActivity')}</p>
+        ) : (
+          <div className="space-y-2 py-2">
+            {accounts.map((row) => (
+              <div key={row.accountId} className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate text-muted-foreground">{row.name}</span>
+                <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    +{mask(formatCurrency(row.income, currency, locale))}
+                  </span>
+                  <span className="text-rose-600 dark:text-rose-400">
+                    −{mask(formatCurrency(row.expense, currency, locale))}
+                  </span>
+                  <span className={cn('font-semibold', row.diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+                    {mask(`${row.diff >= 0 ? '+' : '−'}${formatCurrency(Math.abs(row.diff), currency, locale)}`)}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {slide === 2 && (
+        <div className="space-y-1.5 py-2">
+          <DayPanelRow
+            label={t('transactions.calendarMoneyIn')}
+            value={mask(`+${formatCurrency(activity.actualIncome, currency, locale)}`)}
+            amount={activity.actualIncome}
+          />
+          <DayPanelRow
+            label={t('transactions.summaryExpenses')}
+            value={mask(`−${formatCurrency(activity.actualExpense, currency, locale)}`)}
+            amount={-activity.actualExpense}
+          />
+          <div className="border-t border-border pt-1.5">
+            <DayPanelRow
+              label={activity.actualNet >= 0 ? t('transactions.calendarMoneyLeftOver') : t('transactions.calendarMoneyOut')}
+              value={mask(`${activity.actualNet >= 0 ? '+' : '−'}${formatCurrency(Math.abs(activity.actualNet), currency, locale)}`)}
+              amount={activity.actualNet}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // One label/value line, the shape the rest of the panel and the page already use.
 // `amount` only picks the colour, so the caller stays free to format the string.
 function DayPanelRow({ label, value, amount }: { label: string; value: string; amount: number }) {
@@ -1197,7 +1364,7 @@ function DayPanelRow({ label, value, amount }: { label: string; value: string; a
 // Mirrors MobileTransactionRow so a transaction reads the same in the list and
 // in the calendar: category icon, description with inline badges, account row,
 // colour-coded signed amount with the primary-currency conversion underneath.
-function CalendarItemRow({
+export function CalendarItemRow({
   item,
   account,
   locale,

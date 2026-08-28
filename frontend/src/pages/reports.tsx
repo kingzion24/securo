@@ -34,19 +34,23 @@ import { formatCurrency } from '@/lib/format'
 // detail ring. Capped to a handful of slices, distinct colours make each
 // holding easy to match against its legend entry (which a same-hue ramp
 // across 15+ near-identical slices never could).
+// Apple's iOS system-color set — a large categorical palette needs real hue
+// separation to stay legible, so this leans on Apple's own 12-color system
+// rather than grayscale-everything (the one case where "restraint" yields
+// to "the chart must be readable").
 const SLICE_COLORS = [
-  '#6366F1', // indigo
-  '#F59E0B', // amber
-  '#10B981', // emerald
-  '#EC4899', // pink
-  '#0EA5E9', // sky
-  '#8B5CF6', // violet
-  '#F97316', // orange
-  '#14B8A6', // teal
-  '#84CC16', // lime
-  '#D946EF', // fuchsia
-  '#F43F5E', // rose
-  '#06B6D4', // cyan
+  '#0071e3', // blue
+  '#ff9500', // orange
+  '#34c759', // green
+  '#ff2d55', // pink
+  '#32ade6', // cyan
+  '#5e5ce6', // indigo
+  '#ff3b30', // red
+  '#30b0c7', // teal
+  '#a2845e', // brown
+  '#af52de', // purple
+  '#ffcc00', // yellow
+  '#00c7be', // mint
 ]
 const OTHER_SLICE_COLOR = '#9CA3AF'
 
@@ -254,7 +258,7 @@ export default function ReportsPage() {
             key,
             label: orig?.label ?? key,
             value: Math.abs(rawValue as number),
-            color: orig?.color ?? '#6366F1',
+            color: orig?.color ?? '#0071e3',
           }
         })
         .filter((b) => b.value > 0)
@@ -662,7 +666,7 @@ export default function ReportsPage() {
             <div className="flex items-center gap-3">
               {meta.type === 'net_worth' ? (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#6366F1' }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0071e3' }} />
                   <span className="text-[11px] text-muted-foreground">
                     {t('reports.netWorth')}
                   </span>
@@ -672,7 +676,7 @@ export default function ReportsPage() {
                   <div key={key} className="flex items-center gap-1.5">
                     <div
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: colorMap[key] || '#6366F1' }}
+                      style={{ backgroundColor: colorMap[key] || '#0071e3' }}
                     />
                     <span className="text-[11px] text-muted-foreground">
                       {t(`reports.${key}`, { defaultValue: key })}
@@ -682,7 +686,7 @@ export default function ReportsPage() {
               )}
               {meta.type === 'income_expenses' && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#6366F1' }} />
+                  <div className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#0071e3' }} />
                   <span className="text-[11px] text-muted-foreground">
                     {t('reports.netIncome')}
                   </span>
@@ -690,7 +694,7 @@ export default function ReportsPage() {
               )}
               {meta.type === 'cash_flow' && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#6366F1' }} />
+                  <div className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#0071e3' }} />
                   <span className="text-[11px] text-muted-foreground">
                     {meta.baseline_active ? t('reports.forecastBaseline') : t('reports.forecast')}
                   </span>
@@ -712,8 +716,8 @@ export default function ReportsPage() {
                   <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="cashFlowGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#6366F1" stopOpacity={0.02} />
+                        <stop offset="5%" stopColor="#0071e3" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#0071e3" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <XAxis
@@ -745,7 +749,7 @@ export default function ReportsPage() {
                         return (
                           <div style={tooltipStyle} className="px-3 py-2">
                             <p className="text-xs font-medium mb-1">{label}</p>
-                            <p className="text-xs" style={{ color: '#6366F1' }}>
+                            <p className="text-xs" style={{ color: '#0071e3' }}>
                               {t('reports.balance', { defaultValue: 'Balance' })}:{' '}
                               {privacyMode ? MASK : formatCurrency(balance, userCurrency, locale)}
                             </p>
@@ -788,24 +792,24 @@ export default function ReportsPage() {
                     <Area
                       type="monotone"
                       dataKey="valuePast"
-                      stroke="#6366F1"
+                      stroke="#0071e3"
                       strokeWidth={2.5}
                       fill="url(#cashFlowGrad)"
                       dot={false}
-                      activeDot={{ r: 4, fill: '#6366F1' }}
+                      activeDot={{ r: 4, fill: '#0071e3' }}
                       isAnimationActive={false}
                       connectNulls={false}
                     />
                     <Area
                       type="monotone"
                       dataKey="valueForecast"
-                      stroke="#6366F1"
+                      stroke="#0071e3"
                       strokeWidth={2.5}
                       strokeDasharray="6 3"
                       fill="url(#cashFlowGrad)"
                       fillOpacity={0.4}
                       dot={false}
-                      activeDot={{ r: 4, fill: '#6366F1' }}
+                      activeDot={{ r: 4, fill: '#0071e3' }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -850,11 +854,11 @@ export default function ReportsPage() {
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#6366F1"
+                  stroke="#0071e3"
                   strokeWidth={2}
                   strokeDasharray="6 3"
                   dot={false}
-                  activeDot={{ r: 4, fill: '#6366F1' }}
+                  activeDot={{ r: 4, fill: '#0071e3' }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -863,8 +867,8 @@ export default function ReportsPage() {
               <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="netWorthGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0.02} />
+                    <stop offset="5%" stopColor="#0071e3" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#0071e3" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <XAxis
@@ -897,7 +901,7 @@ export default function ReportsPage() {
                     return (
                       <div style={tooltipStyle} className="px-3 py-2">
                         <p className="text-xs font-medium mb-1">{label}</p>
-                        <p className="text-xs" style={{ color: '#6366F1' }}>
+                        <p className="text-xs" style={{ color: '#0071e3' }}>
                           {t(currentTab.labelKey)}:{' '}
                           {privacyMode ? MASK : formatCurrency(value, userCurrency, locale)}
                         </p>
@@ -914,11 +918,11 @@ export default function ReportsPage() {
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="#6366F1"
+                  stroke="#0071e3"
                   strokeWidth={2.5}
                   fill="url(#netWorthGrad)"
                   dot={false}
-                  activeDot={{ r: 4, fill: '#6366F1' }}
+                  activeDot={{ r: 4, fill: '#0071e3' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -1395,7 +1399,7 @@ export default function ReportsPage() {
                           { key: 'inflow', color: '#10B981' },
                           { key: 'outflow', color: '#F43F5E' },
                         ]
-                      : meta.series_keys.map((k) => ({ key: k, color: colorMap[k] || '#6366F1' }))
+                      : meta.series_keys.map((k) => ({ key: k, color: colorMap[k] || '#0071e3' }))
                     const filteredSeries = allSeries.filter(({ key }) =>
                       chartData.some((d) => { const v = d[key]; return typeof v === 'number' && v !== 0 })
                     )

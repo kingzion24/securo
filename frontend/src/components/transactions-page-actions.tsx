@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { ArrowLeftRight, CalendarDays, Copy, Download, List, MoreHorizontal } from 'lucide-react'
+import { ArrowLeftRight, CalendarClock, CalendarDays, Copy, Download, List, MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MonthStepper } from '@/components/month-stepper'
+import { TransactionsViewSwitcher } from '@/components/transactions-view-switcher'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,13 +22,14 @@ type MonthStepperConfig = {
   nextLabel: string
 }
 
-type TransactionsViewMode = 'list' | 'calendar'
+type TransactionsViewMode = 'list' | 'calendar' | 'day'
 
 type ViewSwitcherConfig = {
   value: TransactionsViewMode
   onChange: (value: TransactionsViewMode) => void
   listLabel: string
   calendarLabel: string
+  dayLabel: string
 }
 
 export type TransactionsPageActionsProps = {
@@ -51,38 +53,11 @@ function HeaderMonthStepper({ month }: { month: MonthStepperConfig }) {
   )
 }
 
-function DesktopViewSwitcher({ view }: { view: ViewSwitcherConfig }) {
-  return (
-    <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
-      <Button
-        variant={view.value === 'list' ? 'secondary' : 'ghost'}
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-pressed={view.value === 'list'}
-        onClick={() => view.onChange('list')}
-      >
-        <List size={14} />
-        {view.listLabel}
-      </Button>
-      <Button
-        variant={view.value === 'calendar' ? 'secondary' : 'ghost'}
-        size="sm"
-        className="h-8 gap-1.5 px-2.5"
-        aria-pressed={view.value === 'calendar'}
-        onClick={() => view.onChange('calendar')}
-      >
-        <CalendarDays size={14} />
-        {view.calendarLabel}
-      </Button>
-    </div>
-  )
-}
-
 function DesktopSecondaryActions(props: TransactionsPageActionsProps) {
   const { t } = useTranslation()
   return (
     <div className="hidden sm:contents">
-      <DesktopViewSwitcher view={props.view} />
+      <TransactionsViewSwitcher {...props.view} />
       {props.columnPicker}
       <Button variant="outline" disabled={props.exporting} onClick={props.onExport}>
         <Download size={16} className="mr-1.5" />{props.exportLabel}
@@ -107,7 +82,7 @@ function PrimaryAddAction({ onAdd }: { onAdd?: () => void }) {
 function MobileSecondaryMenu(props: TransactionsPageActionsProps) {
   const { t } = useTranslation()
   const changeView = (value: string) => {
-    if (value === 'list' || value === 'calendar') props.view.onChange(value)
+    if (value === 'list' || value === 'calendar' || value === 'day') props.view.onChange(value)
   }
   return (
     <DropdownMenu>
@@ -120,6 +95,7 @@ function MobileSecondaryMenu(props: TransactionsPageActionsProps) {
         <DropdownMenuRadioGroup value={props.view.value} onValueChange={changeView}>
           <DropdownMenuRadioItem value="list"><List />{props.view.listLabel}</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="calendar"><CalendarDays />{props.view.calendarLabel}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="day"><CalendarClock />{props.view.dayLabel}</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={props.exporting} onClick={props.onExport}><Download size={16} className="mr-2" />{props.exportLabel}</DropdownMenuItem>
@@ -138,7 +114,7 @@ export function TransactionsPageActions(props: TransactionsPageActionsProps) {
   // Secondary actions stay labelled on desktop and collapse only where width is scarce.
   return (
     <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-wrap sm:justify-end" data-testid={props.testId}>
-      <HeaderMonthStepper month={props.month} />
+      {props.view.value !== 'day' && <HeaderMonthStepper month={props.month} />}
       <DesktopSecondaryActions {...props} />
       <PrimaryAddAction onAdd={props.onAdd} />
       <MobileSecondaryMenu {...props} />

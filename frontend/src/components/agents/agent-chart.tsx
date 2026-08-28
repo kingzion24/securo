@@ -44,16 +44,17 @@ import { formatCurrency } from '@/lib/format'
  *   { "type":"pie", "data":[{"name":"Food","value":500},{"name":"Rent","value":1200}] }
  */
 
-// Same palette as reports.tsx so chats look like the rest of the app.
+// Same palette as reports.tsx (Apple's iOS system-color set) so charts look
+// like the rest of the app.
 const PALETTE = [
-  '#6366F1', // indigo
-  '#10B981', // emerald
-  '#F59E0B', // amber
-  '#F43F5E', // rose
-  '#8B5CF6', // violet
-  '#06B6D4', // cyan
-  '#EC4899', // pink
-  '#84CC16', // lime
+  '#0071e3', // blue
+  '#34c759', // green
+  '#ff9500', // orange
+  '#ff3b30', // red
+  '#5e5ce6', // indigo
+  '#32ade6', // cyan
+  '#ff2d55', // pink
+  '#a2845e', // brown
 ]
 
 type ChartType = 'line' | 'bar' | 'area' | 'pie'

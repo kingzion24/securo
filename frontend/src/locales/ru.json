@@ -561,7 +561,27 @@
     "calendarNoActivity": "В этом месяце нет активности",
     "calendarNoMovements": "Нет операций",
     "calendarActualNet": "Фактический итог",
-    "calendarTransfersExcluded": "Переводы не учитываются как приход или расходы"
+    "calendarTransfersExcluded": "Переводы не учитываются как приход или расходы",
+    "summaryTotalExpenses": "Total expenses",
+    "summaryByAccount": "By account",
+    "summaryUnknownAccount": "Unknown account",
+    "calendarPreviousSlide": "Previous",
+    "calendarNextSlide": "Next",
+    "calendarDaySlider": "Day breakdown",
+    "calendarTotalExpense": "Total expense",
+    "calendarNoAccountActivity": "No account activity this day",
+    "calendarMoneyIn": "Money in",
+    "calendarMoneyOut": "Money out",
+    "calendarMoneyLeftOver": "Left over",
+    "dayView": "Day",
+    "dayPrevious": "Previous day",
+    "dayNext": "Next day",
+    "dayPreviousAccount": "Previous account",
+    "dayNextAccount": "Next account",
+    "dayAllAccounts": "All",
+    "dayNoItems": "No expenses on this day",
+    "dayEndingBalance": "{{account}} balance (end of day)",
+    "dayTotalExpenses": "Total expenses"
   },
   "accounts": {
     "title": "Счета",
@@ -862,6 +882,16 @@
     "confirmDeleteDescription": "Определение регулярной транзакции «{{description}}» будет удалено навсегда. Существующие транзакции останутся, но потеряют связь с регулярной транзакцией. Это действие нельзя отменить."
   },
   "rules": {
+    "preview": "Предпросмотр",
+    "previewMatched": "совпадений: {{matched}}",
+    "previewSummary": "подходящих транзакций: {{matched}} · изменится: {{changed}}",
+    "previewSampleNote": "показаны {{shown}} последних",
+    "previewLoadMore": "Загрузить ещё {{more}}",
+    "previewNoChange": "без изменений",
+    "previewEmpty": "Ни одна транзакция не подходит под эти условия",
+    "previewInactive": "правило неактивно, пока ничего не изменится",
+    "previewNotAppliedToExisting": "не применяется к существующим транзакциям",
+    "previewError": "Не удалось загрузить предпросмотр",
     "section": "Автоматизация",
     "packs": "Пакеты правил",
     "packRuleCount": "{{count}} правил",
@@ -1386,6 +1416,8 @@
     "taxIdKind": "Тип документа",
     "searchTaxIdKind": "Поиск документа или страны…",
     "invalidTaxId": "Проверьте этот документ: он выглядит недействительным.",
+    "duplicateName": "Человек с таким именем уже существует.",
+    "duplicateTaxId": "этот документ уже добавлен этому человеку.",
     "add": "Добавить получателя",
     "edit": "Редактировать получателя",
     "created": "Получатель создан",
@@ -1980,6 +2012,11 @@
         "title": "Подключений пока нет",
         "subtitle": "Добавьте подключение, чтобы направить Securo на ваш локальный Ollama, OpenAI, Anthropic или любой совместимый с OpenAI эндпоинт."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

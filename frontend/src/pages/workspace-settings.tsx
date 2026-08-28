@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dialog'
 import { AlertTriangle, Archive, Plus, Save, Trash2, Users } from 'lucide-react'
 import { WORKSPACE_KIND_LABEL_KEY } from '@/lib/workspace-kinds'
+import { SUPPORTED_LANGS } from '@/lib/i18n'
 import { countryFlag } from '@/lib/country-flag'
 import { countryName } from '@/lib/country-name'
 import type { WorkspaceKind, WorkspaceMember, WorkspaceRole } from '@/types'
@@ -72,7 +73,7 @@ function formatDate(iso: string, locale: string): string {
   }
 }
 
-const DEFAULT_WORKSPACE_COLOR = '#6366F1'
+const DEFAULT_WORKSPACE_COLOR = '#0071e3'
 const DEFAULT_WORKSPACE_ICON = 'briefcase'
 
 export default function WorkspaceSettingsPage() {
@@ -435,16 +436,9 @@ export default function WorkspaceSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">—</SelectItem>
-                  <SelectItem value="ru">Русский</SelectItem>
-                  <SelectItem value="de">Deutsch</SelectItem>
-                  <SelectItem value="uk">Українська</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="pt-BR">Português (BR)</SelectItem>
-                  <SelectItem value="pt-PT">Português (PT)</SelectItem>
-                  <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="pl">Polski</SelectItem>
-                  <SelectItem value="it">Italiano</SelectItem>
-                  <SelectItem value="fr">Français</SelectItem>
+                  {SUPPORTED_LANGS.map(({ code, label }) => (
+                    <SelectItem key={code} value={code}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

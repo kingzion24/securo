@@ -1031,16 +1031,16 @@ export default function AccountDetailPage() {
             </Button>
           )}
           {isForeignCurrency && (
-            <div className="ml-auto inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs font-medium">
+            <div className="ml-auto inline-flex rounded-full border border-border bg-muted p-0.5 text-xs font-medium">
               <button
                 onClick={() => setShowPrimary(false)}
-                className={`px-3 py-1.5 rounded-md transition-colors ${!showPrimary ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 rounded-full transition-all duration-200 ease-[var(--ease-out-quart)] ${!showPrimary ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {account.currency}
               </button>
               <button
                 onClick={() => setShowPrimary(true)}
-                className={`px-3 py-1.5 rounded-md transition-colors ${showPrimary ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 rounded-full transition-all duration-200 ease-[var(--ease-out-quart)] ${showPrimary ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {userCurrency}
               </button>
@@ -1661,7 +1661,7 @@ export default function AccountDetailPage() {
                             )}
                             {tx.effective_bill_date && (
                               <span
-                                className="ml-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 font-normal bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 rounded px-1.5 py-0.5"
+                                className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground font-normal bg-muted border border-border rounded px-1.5 py-0.5"
                                 title={t('transactions.billOverrideTooltip', 'Movida para a fatura com vencimento em {{date}}', { date: formatDateStr(tx.effective_bill_date, dateLocale) })}
                               >
                                 <CalendarClock className="h-3 w-3" />

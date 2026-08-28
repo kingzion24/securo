@@ -555,7 +555,27 @@
     "calendarNoActivity": "Keine Aktivität in diesem Monat",
     "calendarNoMovements": "Keine Bewegungen",
     "calendarActualNet": "Tatsächliches Netto",
-    "calendarTransfersExcluded": "Umbuchungen zählen nicht als Einnahmen oder Ausgaben"
+    "calendarTransfersExcluded": "Umbuchungen zählen nicht als Einnahmen oder Ausgaben",
+    "summaryTotalExpenses": "Total expenses",
+    "summaryByAccount": "By account",
+    "summaryUnknownAccount": "Unknown account",
+    "calendarPreviousSlide": "Previous",
+    "calendarNextSlide": "Next",
+    "calendarDaySlider": "Day breakdown",
+    "calendarTotalExpense": "Total expense",
+    "calendarNoAccountActivity": "No account activity this day",
+    "calendarMoneyIn": "Money in",
+    "calendarMoneyOut": "Money out",
+    "calendarMoneyLeftOver": "Left over",
+    "dayView": "Day",
+    "dayPrevious": "Previous day",
+    "dayNext": "Next day",
+    "dayPreviousAccount": "Previous account",
+    "dayNextAccount": "Next account",
+    "dayAllAccounts": "All",
+    "dayNoItems": "No expenses on this day",
+    "dayEndingBalance": "{{account}} balance (end of day)",
+    "dayTotalExpenses": "Total expenses"
   },
   "accounts": {
     "title": "Konten",
@@ -854,6 +874,16 @@
     "confirmDeleteDescription": "Die wiederkehrende Transaktion \"{{description}}\" wird dauerhaft gelöscht. Vorhandene Transaktionen bleiben bestehen, verlieren jedoch ihre Verknüpfung zur wiederkehrenden Transaktion. Diese Aktion kann nicht rückgängig gemacht werden."
   },
   "rules": {
+    "preview": "Vorschau",
+    "previewMatched": "{{matched}} Treffer",
+    "previewSummary": "{{matched}} passende Transaktionen · {{changed}} würden geändert",
+    "previewSampleNote": "die {{shown}} neuesten werden angezeigt",
+    "previewLoadMore": "{{more}} weitere laden",
+    "previewNoChange": "keine Änderung",
+    "previewEmpty": "Keine Transaktion erfüllt diese Bedingungen",
+    "previewInactive": "Regel ist inaktiv, es ändert sich noch nichts",
+    "previewNotAppliedToExisting": "wird nicht auf bestehende Transaktionen angewendet",
+    "previewError": "Vorschau konnte nicht geladen werden",
     "section": "Automatisierung",
     "packs": "Regelpakete",
     "packRuleCount": "{{count}} Regeln",
@@ -1378,6 +1408,8 @@
     "taxIdKind": "Dokumentart",
     "searchTaxIdKind": "Dokument oder Land suchen…",
     "invalidTaxId": "Prüfe dieses Dokument: es sieht nicht gültig aus.",
+    "duplicateName": "Eine Person mit diesem Namen existiert bereits.",
+    "duplicateTaxId": "dieses Dokument ist bereits bei dieser Person.",
     "add": "Empfänger hinzufügen",
     "edit": "Empfänger bearbeiten",
     "created": "Zahlungsempfänger erstellt",
@@ -1972,6 +2004,11 @@
         "title": "Noch keine Verbindungen",
         "subtitle": "Füge eine Verbindung hinzu, um Securo auf dein lokales Ollama, OpenAI, Anthropic oder einen OpenAI-kompatiblen Endpunkt zu verweisen."
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

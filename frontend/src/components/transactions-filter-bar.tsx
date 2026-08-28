@@ -1253,8 +1253,9 @@ function FilterChip({ icon, label, value, tint, onRemove }: FilterChipProps) {
 }
 
 // Search input with inline `#tag` chips. Free text is a normal input;
-// `#`-prefixed words become purple chips when committed via comma, space
-// (when token starts with `#`), or Enter, and immediately apply as filters.
+// `#`-prefixed words become accent-colored chips (bg-primary/text-primary,
+// so they track the theme) when committed via comma, space (when token
+// starts with `#`), or Enter, and immediately apply as filters.
 function SearchWithTagChips({
   inputRef,
   value,

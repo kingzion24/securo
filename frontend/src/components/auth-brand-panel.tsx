@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { ShellLogo } from '@/components/shell-logo'
 
-// Left-hand brand panel for the auth/onboarding screens. A deep indigo→violet
-// field with a slow purple aurora drifting behind an oversized, translucent
-// shell watermark. Decorative only — hidden below `lg`, where the form takes
-// the full width and carries its own compact header.
+// Left-hand brand panel for the auth/onboarding screens. A deep field with a
+// slow blue-indigo aurora (Apple's signature CTA gradient) drifting behind an
+// oversized, translucent shell watermark. Decorative only — hidden below
+// `lg`, where the form takes the full width and carries its own compact
+// header.
 export function AuthBrandPanel() {
   const { t } = useTranslation()
 
@@ -13,7 +14,7 @@ export function AuthBrandPanel() {
       className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
       style={{
         background:
-          'linear-gradient(150deg, #3F37C9 0%, #5B30C9 48%, #6D28D9 100%)',
+          'linear-gradient(150deg, #0a2540 0%, #0071e3 48%, #5e5ce6 100%)',
       }}
     >
       {/* Soft animated aurora */}

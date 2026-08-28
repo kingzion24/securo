@@ -11,6 +11,7 @@ from app.models.account import Account
 from app.models.bank_connection import BankConnection
 from app.models.credit_card_bill import CreditCardBill
 from app.models.transaction import Transaction
+from app.models.workspace import Workspace
 from app.schemas.account import AccountCreate, AccountUpdate
 from app.services._query_filters import (
     counts_as_pnl,
@@ -46,6 +47,31 @@ def _opening_balance_values(account_type: str, balance: Decimal) -> tuple[Decima
     amount = abs(balance)
     is_credit = (balance > 0) == (account_type != "credit_card")
     return amount, "credit" if is_credit else "debit"
+
+
+# Display label for auto-generated opening-balance transactions. Was
+# hardcoded to Portuguese ("Saldo inicial") regardless of the workspace's
+# language, which reads as a bug to everyone else. Picked once at creation
+# time from `workspace.locale` — like any other transaction description,
+# it's stored text, not re-translated on later reads.
+_OPENING_BALANCE_LABELS: dict[str, str] = {
+    "en": "Opening balance",
+    "de": "Anfangssaldo",
+    "es": "Saldo inicial",
+    "fr": "Solde initial",
+    "it": "Saldo iniziale",
+    "nl": "Beginsaldo",
+    "pl": "Saldo początkowe",
+    "pt-BR": "Saldo inicial",
+    "pt-PT": "Saldo inicial",
+    "ru": "Начальный баланс",
+    "uk": "Початковий баланс",
+}
+
+
+async def _opening_balance_description(session: AsyncSession, workspace_id: uuid.UUID) -> str:
+    locale = await session.scalar(select(Workspace.locale).where(Workspace.id == workspace_id))
+    return _OPENING_BALANCE_LABELS.get(locale or "en", _OPENING_BALANCE_LABELS["en"])
 
 
 async def get_accounts(session: AsyncSession, workspace_id: uuid.UUID, include_closed: bool = False) -> list[dict]:
@@ -281,7 +307,7 @@ async def create_account(
             user_id=user_id,
             workspace_id=workspace_id,
             account_id=account.id,
-            description="Saldo inicial",
+            description=await _opening_balance_description(session, workspace_id),
             amount=amount,
             currency=data.currency,
             date=data.balance_date or _Date.today(),
@@ -408,7 +434,7 @@ async def update_account(
                     user_id=account.user_id,
                     workspace_id=account.workspace_id,
                     account_id=account_id,
-                    description="Saldo inicial",
+                    description=await _opening_balance_description(session, account.workspace_id),
                     amount=amount,
                     currency=account.currency,
                     date=balance_date or _Date.today(),
@@ -558,7 +584,7 @@ async def sync_opening_balance_for_connected_account(
             user_id=account.user_id,
             workspace_id=account.workspace_id,
             account_id=account.id,
-            description="Saldo inicial",
+            description=await _opening_balance_description(session, account.workspace_id),
             amount=amount,
             currency=account.currency,
             date=opening_date,

@@ -205,6 +205,7 @@ if os.getenv("AGENTS_ENABLED", "false").strip().lower() in ("1", "true", "yes", 
         from app.agents.api.chat import router as agents_chat_router
         from app.agents.api.knowledge import router as agents_knowledge_router
         from app.agents.api.mcp_tokens import router as agents_mcp_tokens_router
+        from app.agents.api.scraper_findings import router as agents_findings_router
 
         # Mount literal-prefix routers (conversations, connections,
         # mcp-tokens) BEFORE the generic agents router so paths like
@@ -216,6 +217,7 @@ if os.getenv("AGENTS_ENABLED", "false").strip().lower() in ("1", "true", "yes", 
         app.include_router(agents_router)
         app.include_router(agents_chat_router)
         app.include_router(agents_knowledge_router)
+        app.include_router(agents_findings_router)
         logger.info("Agents feature enabled — mounted /api/agents routes")
     except Exception:
         logger.exception("Agents feature flag is on but import failed; routes not mounted")

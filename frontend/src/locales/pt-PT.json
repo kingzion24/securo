@@ -555,7 +555,27 @@
     "bulkAddTags": "Adicionar tags",
     "bulkRemoveTags": "Remover tags",
     "addTagsPlaceholder": "#tag…",
-    "clearOverride": "Limpar substituição"
+    "clearOverride": "Limpar substituição",
+    "summaryTotalExpenses": "Total expenses",
+    "summaryByAccount": "By account",
+    "summaryUnknownAccount": "Unknown account",
+    "calendarPreviousSlide": "Previous",
+    "calendarNextSlide": "Next",
+    "calendarDaySlider": "Day breakdown",
+    "calendarTotalExpense": "Total expense",
+    "calendarNoAccountActivity": "No account activity this day",
+    "calendarMoneyIn": "Money in",
+    "calendarMoneyOut": "Money out",
+    "calendarMoneyLeftOver": "Left over",
+    "dayView": "Day",
+    "dayPrevious": "Previous day",
+    "dayNext": "Next day",
+    "dayPreviousAccount": "Previous account",
+    "dayNextAccount": "Next account",
+    "dayAllAccounts": "All",
+    "dayNoItems": "No expenses on this day",
+    "dayEndingBalance": "{{account}} balance (end of day)",
+    "dayTotalExpenses": "Total expenses"
   },
   "accounts": {
     "title": "Contas",
@@ -854,6 +874,16 @@
     "confirmDeleteDescription": "A definição recorrente \"{{description}}\" será eliminada permanentemente. As transações existentes manter-se-ão, mas perderão a ligação recorrente. Esta ação não pode ser desfeita."
   },
   "rules": {
+    "preview": "Pré-visualizar",
+    "previewMatched": "{{matched}} correspondências",
+    "previewSummary": "{{matched}} transações correspondem · {{changed}} seriam alteradas",
+    "previewSampleNote": "a mostrar as {{shown}} mais recentes",
+    "previewLoadMore": "Carregar mais {{more}}",
+    "previewNoChange": "sem alteração",
+    "previewEmpty": "Nenhuma transação corresponde a estas condições",
+    "previewInactive": "regra inativa, nada muda por enquanto",
+    "previewNotAppliedToExisting": "não será aplicada às transações existentes",
+    "previewError": "Não foi possível carregar a pré-visualização",
     "section": "Automação",
     "packs": "Pacotes de Regras",
     "packRuleCount": "{{count}} regras",
@@ -1378,6 +1408,8 @@
     "taxIdKind": "Tipo de documento",
     "searchTaxIdKind": "Procurar documento ou país…",
     "invalidTaxId": "Verifica este documento: não parece válido.",
+    "duplicateName": "Já existe uma pessoa com este nome.",
+    "duplicateTaxId": "este documento já está nesta pessoa.",
     "add": "Adicionar Entidade",
     "edit": "Editar Entidade",
     "created": "Entidade criada",
@@ -1972,6 +2004,11 @@
         "claude": "Claude Desktop / Code / Cursor",
         "openai": "OpenAI Responses API"
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

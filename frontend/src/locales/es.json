@@ -555,7 +555,27 @@
     "calendarNoActivity": "Sin actividad este mes",
     "calendarNoMovements": "Sin movimientos",
     "calendarActualNet": "Neto real",
-    "calendarTransfersExcluded": "Las transferencias no cuentan como ingresos ni gastos"
+    "calendarTransfersExcluded": "Las transferencias no cuentan como ingresos ni gastos",
+    "summaryTotalExpenses": "Total expenses",
+    "summaryByAccount": "By account",
+    "summaryUnknownAccount": "Unknown account",
+    "calendarPreviousSlide": "Previous",
+    "calendarNextSlide": "Next",
+    "calendarDaySlider": "Day breakdown",
+    "calendarTotalExpense": "Total expense",
+    "calendarNoAccountActivity": "No account activity this day",
+    "calendarMoneyIn": "Money in",
+    "calendarMoneyOut": "Money out",
+    "calendarMoneyLeftOver": "Left over",
+    "dayView": "Day",
+    "dayPrevious": "Previous day",
+    "dayNext": "Next day",
+    "dayPreviousAccount": "Previous account",
+    "dayNextAccount": "Next account",
+    "dayAllAccounts": "All",
+    "dayNoItems": "No expenses on this day",
+    "dayEndingBalance": "{{account}} balance (end of day)",
+    "dayTotalExpenses": "Total expenses"
   },
   "accounts": {
     "title": "Cuentas",
@@ -854,6 +874,16 @@
     "confirmDeleteDescription": "La definición recurrente \"{{description}}\" se eliminará permanentemente. Las transacciones existentes permanecerán, pero perderán su vínculo recurrente. Esta acción no se puede deshacer."
   },
   "rules": {
+    "preview": "Vista previa",
+    "previewMatched": "{{matched}} coincidencias",
+    "previewSummary": "{{matched}} transacciones coinciden · {{changed}} cambiarían",
+    "previewSampleNote": "mostrando las {{shown}} más recientes",
+    "previewLoadMore": "Cargar {{more}} más",
+    "previewNoChange": "sin cambios",
+    "previewEmpty": "Ninguna transacción coincide con estas condiciones",
+    "previewInactive": "la regla está inactiva, aún no cambia nada",
+    "previewNotAppliedToExisting": "no se aplica a las transacciones existentes",
+    "previewError": "No se pudo cargar la vista previa",
     "section": "Automatización",
     "packs": "Paquetes de reglas",
     "packRuleCount": "{{count}} reglas",
@@ -1378,6 +1408,8 @@
     "taxIdKind": "Tipo de documento",
     "searchTaxIdKind": "Buscar documento o país…",
     "invalidTaxId": "Revisa este documento: no parece válido.",
+    "duplicateName": "Ya existe una persona con este nombre.",
+    "duplicateTaxId": "este documento ya está en esta persona.",
     "add": "Agregar beneficiario",
     "edit": "Editar beneficiario",
     "created": "Beneficiario creado",
@@ -1972,6 +2004,11 @@
         "claude": "Claude Desktop / Code / Cursor",
         "openai": "OpenAI Responses API"
       }
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "count": "{{count}} unread",
+      "dismiss": "Dismiss"
     }
   },
   "loans": {

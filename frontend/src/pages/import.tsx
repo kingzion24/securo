@@ -305,7 +305,7 @@ function TransactionImportPanel() {
           message is the only path for those transactions). Hidden once a
           result is showing — switching mode mid-review would be confusing. */}
       {canWrite && !hasResult && (
-        <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+        <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-0.5">
           {([
             { value: 'file', label: t('import.modeFile'), icon: Upload },
             { value: 'paste', label: t('import.modePaste'), icon: MessageSquareText },
@@ -314,7 +314,7 @@ function TransactionImportPanel() {
               key={value}
               type="button"
               onClick={() => setInputMode(value)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${
                 inputMode === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -706,13 +706,13 @@ export default function ImportPage() {
         title={tab === 'investments' ? t('assetImport.title') : t('import.subtitle')}
       />
 
-      <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+      <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-0.5">
         {(['transactions', 'investments'] as const).map((value) => (
           <button
             key={value}
             type="button"
             onClick={() => selectTab(value)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 ease-[var(--ease-out-quart)] ${
               tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >

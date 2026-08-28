@@ -51,7 +51,7 @@ export default function CategoriesPage() {
   const [catDialogOpen, setCatDialogOpen] = useState(false)
   const [editingCat, setEditingCat] = useState<Category | null>(null)
   const [formIcon, setFormIcon] = useState('circle-help')
-  const [formColor, setFormColor] = useState('#6366f1')
+  const [formColor, setFormColor] = useState('#0071e3')
   const [formTreatAsTransfer, setFormTreatAsTransfer] = useState(false)
   const [formIgnoreTransfer, setFormIgnoreTransfer] = useState(false)
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
@@ -168,7 +168,7 @@ export default function CategoriesPage() {
   const openCatDialog = (cat: Category | null) => {
     setEditingCat(cat)
     setFormIcon(cat?.icon ?? 'circle-help')
-    setFormColor(cat?.color ?? '#6366f1')
+    setFormColor(cat?.color ?? '#0071e3')
     setFormTreatAsTransfer(cat?.treat_as_transfer ?? false)
     setFormIgnoreTransfer(cat?.is_ignored ?? false)
     setCatDialogOpen(true)
