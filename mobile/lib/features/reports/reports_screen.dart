@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format/color.dart';
 import '../../core/format/money.dart';
 import '../../core/providers.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
@@ -39,6 +40,7 @@ class _ReportsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final state = context.watch<ReportsBloc>().state;
+    final responsive = context.responsive;
 
     return LargeTitleScrollView(
       title: 'Reports',
@@ -48,13 +50,18 @@ class _ReportsView extends ConsumerWidget {
       },
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          padding: EdgeInsets.fromLTRB(
+            responsive.pagePadding,
+            8,
+            responsive.pagePadding,
+            100,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _KindSelector(selected: state.kind),
-                const SizedBox(height: 20),
+                SizedBox(height: responsive.scale(20, min: 16, max: 24)),
                 switch (state.status) {
                   ReportsStatus.loading => const _ReportSkeleton(),
                   ReportsStatus.failure => ErrorState(
@@ -133,15 +140,19 @@ class _ReportBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          formatMoney(
-            summary.primaryValue,
-            currency: report.meta.currency,
-            locale: locale,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            formatMoney(
+              summary.primaryValue,
+              currency: report.meta.currency,
+              locale: locale,
+            ),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
         ),
         const SizedBox(height: 4),
         Row(
@@ -165,10 +176,10 @@ class _ReportBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: context.responsive.scale(20, min: 16, max: 24)),
         SecuroCard(
           child: SizedBox(
-            height: 200,
+            height: context.responsive.scale(200, min: 180, max: 230),
             child: report.trend.isEmpty
                 ? const EmptyState(
                     icon: Icons.show_chart,
@@ -178,7 +189,7 @@ class _ReportBody extends StatelessWidget {
           ),
         ),
         if (summary.breakdowns.isNotEmpty) ...[
-          const SizedBox(height: 24),
+          SizedBox(height: context.responsive.sectionGap),
           const SectionTitle('Breakdown'),
           SecuroCard(
             padding: EdgeInsets.zero,
