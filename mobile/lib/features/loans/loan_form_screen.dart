@@ -27,7 +27,8 @@ class _LoanFormScreenState extends ConsumerState<LoanFormScreen> {
   late final _note = TextEditingController();
   late String _direction = widget.loan?.direction ?? 'they_owe_me';
   late String _currency = widget.loan?.currency ?? kCurrencyOptions.first;
-  DateTime _date = DateTime.now();
+  late DateTime _date =
+      widget.loan == null ? DateTime.now() : DateTime.parse(widget.loan!.date);
   bool _saving = false;
 
   @override
@@ -97,7 +98,10 @@ class _LoanFormScreenState extends ConsumerState<LoanFormScreen> {
         await repo.update(
           widget.loan!.id,
           personName: name,
+          direction: _direction,
           principalAmount: amount,
+          currency: _currency,
+          date: DateFormat('yyyy-MM-dd').format(_date),
           note: note,
         );
       }
@@ -128,9 +132,7 @@ class _LoanFormScreenState extends ConsumerState<LoanFormScreen> {
               ButtonSegment(value: 'i_owe_them', label: Text('I owe them')),
             ],
             selected: {_direction},
-            onSelectionChanged: widget.loan == null
-                ? (s) => setState(() => _direction = s.first)
-                : null,
+            onSelectionChanged: (s) => setState(() => _direction = s.first),
           ),
         ),
         LabeledField(
@@ -147,49 +149,47 @@ class _LoanFormScreenState extends ConsumerState<LoanFormScreen> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
         ),
-        if (widget.loan == null) ...[
-          LabeledField(
-            label: 'Currency',
-            child: Pressable(
-              onTap: () async {
-                final picked = await showPickerSheet<String>(
-                  context,
-                  title: 'Currency',
-                  items: kCurrencyOptions,
-                  labelBuilder: (c) => c,
-                  selected: _currency,
-                );
-                if (picked != null) setState(() => _currency = picked);
-              },
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: colors.card,
-                  borderRadius: BorderRadius.circular(SecuroRadius.md),
-                  border: Border.all(color: colors.input),
-                ),
-                child: Row(children: [Expanded(child: Text(_currency))]),
+        LabeledField(
+          label: 'Currency',
+          child: Pressable(
+            onTap: () async {
+              final picked = await showPickerSheet<String>(
+                context,
+                title: 'Currency',
+                items: kCurrencyOptions,
+                labelBuilder: (c) => c,
+                selected: _currency,
+              );
+              if (picked != null) setState(() => _currency = picked);
+            },
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(SecuroRadius.md),
+                border: Border.all(color: colors.input),
               ),
+              child: Row(children: [Expanded(child: Text(_currency))]),
             ),
           ),
-          LabeledField(
-            label: 'Date',
-            child: Pressable(
-              onTap: _pickDate,
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: colors.card,
-                  borderRadius: BorderRadius.circular(SecuroRadius.md),
-                  border: Border.all(color: colors.input),
-                ),
-                child: Row(children: [Text(DateFormat.yMMMd().format(_date))]),
+        ),
+        LabeledField(
+          label: 'Date',
+          child: Pressable(
+            onTap: _pickDate,
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(SecuroRadius.md),
+                border: Border.all(color: colors.input),
               ),
+              child: Row(children: [Text(DateFormat.yMMMd().format(_date))]),
             ),
           ),
-        ],
+        ),
         LabeledField(
           label: 'Note',
           child: TextField(controller: _note, maxLines: 3),

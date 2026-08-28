@@ -10,30 +10,23 @@ class RulesRepository {
     return data.map((e) => Rule.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  /// Scoped to the common case — one condition, one "set category" action —
-  /// rather than the web editor's full nested AND/OR group builder and five
-  /// action types. Covers the large majority of real rules ("if description
-  /// contains X, categorize as Y"); anything more elaborate stays a web-only
-  /// edit for now.
+  /// `conditions` mixes leaf `{field, op, value}` maps and one level of
+  /// group maps (`{op: 'and'|'or', conditions: [leaf, ...]}`) — matching the
+  /// backend's `RuleConditionNode` union, which caps nesting at two levels.
   Future<void> create({
     required String name,
-    required String field,
-    required String op,
-    required String value,
-    required String categoryId,
+    required String conditionsOp,
+    required List<Map<String, dynamic>> conditions,
+    required List<Map<String, dynamic>> actions,
     bool isActive = true,
   }) async {
     await _api.post<Map<String, dynamic>>(
       '/rules',
       body: {
         'name': name,
-        'conditions_op': 'and',
-        'conditions': [
-          {'field': field, 'op': op, 'value': value},
-        ],
-        'actions': [
-          {'op': 'set_category', 'value': categoryId},
-        ],
+        'conditions_op': conditionsOp,
+        'conditions': conditions,
+        'actions': actions,
         'is_active': isActive,
       },
     );
@@ -42,24 +35,18 @@ class RulesRepository {
   Future<void> update(
     String id, {
     String? name,
-    String? field,
-    String? op,
-    String? value,
-    String? categoryId,
+    String? conditionsOp,
+    List<Map<String, dynamic>>? conditions,
+    List<Map<String, dynamic>>? actions,
     bool? isActive,
   }) async {
     await _api.patch<Map<String, dynamic>>(
       '/rules/$id',
       body: {
         'name': ?name,
-        if (field != null && op != null && value != null)
-          'conditions': [
-            {'field': field, 'op': op, 'value': value},
-          ],
-        if (categoryId != null)
-          'actions': [
-            {'op': 'set_category', 'value': categoryId},
-          ],
+        'conditions_op': ?conditionsOp,
+        'conditions': ?conditions,
+        'actions': ?actions,
         'is_active': ?isActive,
       },
     );

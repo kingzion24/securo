@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/color.dart';
+import '../../core/format/country_flag.dart';
 import '../../core/format/currencies.dart';
 import '../../core/icons/lucide_icon_map.dart';
 import '../../core/theme/theme.dart';
@@ -10,6 +11,7 @@ import '../../core/widgets/feedback.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/providers.dart';
 import '../../models/workspace.dart';
 import '../auth/auth_controller.dart';
 import 'workspace_controller.dart';
@@ -21,10 +23,25 @@ class WorkspaceSettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<WorkspaceSettingsScreen> createState() => _WorkspaceSettingsScreenState();
 }
 
+const _kSupportedLangs = [
+  ('en', 'English'),
+  ('pt-BR', 'Português (BR)'),
+  ('pt-PT', 'Português (PT)'),
+  ('es', 'Español'),
+  ('fr', 'Français'),
+  ('de', 'Deutsch'),
+  ('it', 'Italiano'),
+  ('pl', 'Polski'),
+  ('ru', 'Русский'),
+  ('uk', 'Українська'),
+  ('nl', 'Nederlands'),
+];
+
 class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScreen> {
   Workspace? _workspace;
   Map<String, int>? _stats;
   List<WorkspaceMember>? _members;
+  List<String> _jurisdictions = const [];
   bool _loading = true;
   String? _error;
 
@@ -51,6 +68,7 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
       final results = await Future.wait([
         repo.stats(workspace.id),
         repo.members(workspace.id),
+        repo.jurisdictions(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -58,6 +76,7 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
         _nameController.text = workspace.name;
         _stats = results[0] as Map<String, int>;
         _members = results[1] as List<WorkspaceMember>;
+        _jurisdictions = results[2] as List<String>;
         _loading = false;
       });
     } catch (error) {
@@ -101,6 +120,27 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
       // separate per-user preference, but other screens read the workspace
       // provider, so it must be invalidated.
       ref.invalidate(currentWorkspaceProvider);
+    } catch (error) {
+      if (mounted) showAppToast(context, '$error', isError: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Bypasses [WorkspaceRepository.update] because clearing back to "no
+  /// preference" needs the key present with a JSON `null` — the shared
+  /// `update()` helper omits null-valued keys entirely (so unrelated calls
+  /// don't clobber fields the caller didn't mean to touch), which can't
+  /// express "unset this one" for this specific picker.
+  Future<void> _patchNullable(String field, String? value) async {
+    setState(() => _saving = true);
+    try {
+      final data = await ref.read(apiClientProvider).patch<Map<String, dynamic>>(
+        '/workspaces/${_workspace!.id}',
+        body: {field: value},
+      );
+      if (!mounted) return;
+      setState(() => _workspace = Workspace.fromJson(data));
     } catch (error) {
       if (mounted) showAppToast(context, '$error', isError: true);
     } finally {
@@ -342,6 +382,98 @@ class _WorkspaceSettingsScreenState extends ConsumerState<WorkspaceSettingsScree
                                       child: Row(
                                         children: [
                                           Expanded(child: Text(_workspace!.defaultCurrency)),
+                                          Icon(Icons.unfold_more,
+                                              size: 18, color: colors.mutedForeground),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text('Locale',
+                                      style: Theme.of(context).textTheme.labelMedium),
+                                  const SizedBox(height: 6),
+                                  Pressable(
+                                    onTap: () async {
+                                      final picked = await showPickerSheet<String>(
+                                        context,
+                                        title: 'Locale',
+                                        items: [for (final l in _kSupportedLangs) l.$1],
+                                        labelBuilder: (code) => _kSupportedLangs
+                                            .firstWhere((l) => l.$1 == code)
+                                            .$2,
+                                        selected: _workspace!.locale,
+                                        allowNone: true,
+                                      );
+                                      _patchNullable('locale', picked);
+                                    },
+                                    child: Container(
+                                      height: 44,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(SecuroRadius.md),
+                                        border: Border.all(color: colors.input),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _workspace!.locale == null
+                                                  ? '—'
+                                                  : _kSupportedLangs
+                                                      .firstWhere(
+                                                          (l) => l.$1 == _workspace!.locale,
+                                                          orElse: () =>
+                                                              (_workspace!.locale!, _workspace!.locale!))
+                                                      .$2,
+                                            ),
+                                          ),
+                                          Icon(Icons.unfold_more,
+                                              size: 18, color: colors.mutedForeground),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text('Tax jurisdiction',
+                                      style: Theme.of(context).textTheme.labelMedium),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Decides which fiscal documents this workspace offers. '
+                                    'Separate from the interface language.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: colors.mutedForeground),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Pressable(
+                                    onTap: () async {
+                                      final picked = await showPickerSheet<String>(
+                                        context,
+                                        title: 'Tax jurisdiction',
+                                        items: _jurisdictions,
+                                        labelBuilder: (code) =>
+                                            '${countryFlag(code)} $code'.trim(),
+                                        selected: _workspace!.taxJurisdiction,
+                                        allowNone: true,
+                                      );
+                                      _patchNullable('tax_jurisdiction', picked);
+                                    },
+                                    child: Container(
+                                      height: 44,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(SecuroRadius.md),
+                                        border: Border.all(color: colors.input),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(_workspace!.taxJurisdiction == null
+                                                ? '—'
+                                                : '${countryFlag(_workspace!.taxJurisdiction!)} ${_workspace!.taxJurisdiction}'
+                                                    .trim()),
+                                          ),
                                           Icon(Icons.unfold_more,
                                               size: 18, color: colors.mutedForeground),
                                         ],

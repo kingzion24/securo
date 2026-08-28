@@ -26,6 +26,11 @@ class WorkspaceRepository {
     return data.map((k, v) => MapEntry(k, v as int));
   }
 
+  Future<List<String>> jurisdictions() async {
+    final data = await _api.get<Map<String, dynamic>>('/fiscal/jurisdictions');
+    return (data['jurisdictions'] as List).cast<String>();
+  }
+
   Future<Workspace> update(
     String workspaceId, {
     String? name,

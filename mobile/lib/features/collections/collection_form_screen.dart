@@ -8,8 +8,10 @@ import '../../core/widgets/feedback.dart';
 import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../models/account.dart';
+import '../../models/asset_group.dart';
 import '../../models/collection.dart';
 import '../accounts/accounts_screen.dart';
+import '../assets/assets_screen.dart';
 import 'collections_screen.dart';
 
 const _kCollectionColors = [
@@ -17,9 +19,6 @@ const _kCollectionColors = [
   '#ff3b30', '#ff2d55', '#5e5ce6', '#6e6e73',
 ];
 
-/// Scoped to account membership — wallet (asset-group) membership stays a
-/// web-only field on this form for now; the mobile app doesn't yet have an
-/// asset-groups screen to pick from.
 class CollectionFormScreen extends ConsumerStatefulWidget {
   const CollectionFormScreen({this.collection, super.key});
   final Collection? collection;
@@ -32,15 +31,20 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   late final _name = TextEditingController(text: widget.collection?.name ?? '');
   late String _color = widget.collection?.color ?? _kCollectionColors.first;
   final Set<String> _selectedAccountIds = {};
+  final Set<String> _selectedWalletIds = {};
   bool _saving = false;
   bool _loadingAccounts = true;
+  bool _loadingWallets = true;
   List<Account> _accounts = [];
+  List<AssetGroup> _wallets = [];
 
   @override
   void initState() {
     super.initState();
     _selectedAccountIds.addAll(widget.collection?.accountIds ?? const []);
+    _selectedWalletIds.addAll(widget.collection?.walletIds ?? const []);
     _loadAccounts();
+    _loadWallets();
   }
 
   Future<void> _loadAccounts() async {
@@ -55,6 +59,20 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
       if (!mounted) return;
       setState(() => _loadingAccounts = false);
       showAppToast(context, '$error', isError: true);
+    }
+  }
+
+  Future<void> _loadWallets() async {
+    try {
+      final wallets = await ref.read(assetsRepositoryProvider).listGroups();
+      if (!mounted) return;
+      setState(() {
+        _wallets = wallets;
+        _loadingWallets = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingWallets = false);
     }
   }
 
@@ -78,6 +96,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           name: name,
           color: _color,
           accountIds: _selectedAccountIds.toList(),
+          walletIds: _selectedWalletIds.toList(),
         );
       } else {
         await repo.update(
@@ -85,6 +104,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           name: name,
           color: _color,
           accountIds: _selectedAccountIds.toList(),
+          walletIds: _selectedWalletIds.toList(),
         );
       }
       if (!mounted) return;
@@ -164,6 +184,32 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                   ],
                 ),
         ),
+        if (_loadingWallets)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          )
+        else if (_wallets.isNotEmpty)
+          LabeledField(
+            label: 'Wallets',
+            child: SecuroCardList(
+              children: [
+                for (final wallet in _wallets)
+                  CheckboxListTile(
+                    title: Text(wallet.name),
+                    value: _selectedWalletIds.contains(wallet.id),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (checked) => setState(() {
+                      if (checked == true) {
+                        _selectedWalletIds.add(wallet.id);
+                      } else {
+                        _selectedWalletIds.remove(wallet.id);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }

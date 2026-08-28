@@ -34,7 +34,10 @@ class LoansRepository {
   Future<void> update(
     String id, {
     String? personName,
+    String? direction,
     double? principalAmount,
+    String? currency,
+    String? date,
     String? note,
     String? status,
   }) async {
@@ -42,7 +45,10 @@ class LoansRepository {
       '/loans/$id',
       body: {
         'person_name': ?personName,
+        'direction': ?direction,
         'principal_amount': ?principalAmount,
+        'currency': ?currency,
+        'date': ?date,
         'note': ?note,
         'status': ?status,
       },

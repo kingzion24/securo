@@ -1,5 +1,6 @@
 import '../../core/api/api_client.dart';
 import '../../models/asset.dart';
+import '../../models/asset_group.dart';
 
 class AssetsRepository {
   AssetsRepository(this._api);
@@ -8,6 +9,14 @@ class AssetsRepository {
   Future<List<Asset>> list() async {
     final data = await _api.get<List<dynamic>>('/assets');
     return data.map((e) => Asset.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Wallets (asset groups) — used to populate pickers elsewhere (e.g.
+  /// Collections' wallet membership); managing a wallet's own name/icon
+  /// stays a web-only flow for now.
+  Future<List<AssetGroup>> listGroups() async {
+    final data = await _api.get<List<dynamic>>('/asset-groups');
+    return data.map((e) => AssetGroup.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// Manual-valuation assets only — market-priced (ticker) holdings and
