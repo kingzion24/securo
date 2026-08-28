@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/large_title_scroll.dart';
@@ -19,6 +20,7 @@ class DashboardScreen extends ConsumerWidget {
     final workspace = ref.watch(currentWorkspaceProvider).valueOrNull;
     final locale = workspace?.locale;
     final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final responsive = context.responsive;
 
     return LargeTitleScrollView(
       title: 'Dashboard',
@@ -40,22 +42,27 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
           data: (summary) => SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: EdgeInsets.fromLTRB(
+              responsive.pagePadding,
+              8,
+              responsive.pagePadding,
+              32,
+            ),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SummaryGrid(summary: summary, locale: locale),
-                  const SizedBox(height: 24),
+                  SizedBox(height: responsive.sectionGap),
                   const SectionTitle('Balance this month'),
                   _BalanceChart(currency: summary.primaryCurrency, locale: locale),
-                  const SizedBox(height: 24),
+                  SizedBox(height: responsive.sectionGap),
                   const SectionTitle('Spending by category'),
                   _SpendingPanel(
                     currency: summary.primaryCurrency,
                     locale: locale,
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: responsive.sectionGap),
                   const SectionTitle('Income vs expenses'),
                   _TrendChart(currency: summary.primaryCurrency, locale: locale),
                 ],
@@ -132,25 +139,27 @@ class _SummaryGrid extends StatelessWidget {
       ),
     ];
 
+    final gap = context.responsive.scale(12, min: 10, max: 16);
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(child: tiles[0]),
-            const SizedBox(width: 12),
+            SizedBox(width: gap),
             Expanded(child: tiles[1]),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: gap),
         Row(
           children: [
             Expanded(child: tiles[2]),
-            const SizedBox(width: 12),
+            SizedBox(width: gap),
             Expanded(child: tiles[3]),
           ],
         ),
         if (summary.pendingCategorization > 0) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: gap),
           _PendingBanner(summary: summary, locale: locale),
         ],
       ],
@@ -238,8 +247,17 @@ class _PendingBanner extends StatelessWidget {
     final colors = SecuroTheme.of(context);
     final count = summary.pendingCategorization;
 
-    return SecuroCard(
+    // A tinted surface, not another plain white card — this is a heads-up,
+    // not just another stat, and Apple's own "attention" banners (Wallet's
+    // low-balance notice, Health's incomplete-goal card) get a colour wash
+    // rather than blending into the surrounding grayscale cards.
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.chart4.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(SecuroRadius.card),
+        border: Border.all(color: colors.chart4.withValues(alpha: 0.28)),
+      ),
       child: Row(
         children: [
           Icon(Icons.label_outline, size: 18, color: colors.chart4),
@@ -294,7 +312,7 @@ class _SpendingPanel extends ConsumerWidget {
           return Column(
             children: [
               SizedBox(
-                height: 150,
+                height: context.responsive.scale(150, min: 130, max: 175),
                 child: PieChart(
                   PieChartData(
                     sectionsSpace: 2,
@@ -404,7 +422,7 @@ class _BalanceChart extends ConsumerWidget {
 
     return SecuroCard(
       child: SizedBox(
-        height: 170,
+        height: context.responsive.scale(170, min: 150, max: 200),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => ErrorState(
@@ -526,7 +544,7 @@ class _TrendChart extends ConsumerWidget {
 
     return SecuroCard(
       child: SizedBox(
-        height: 190,
+        height: context.responsive.scale(190, min: 170, max: 220),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => ErrorState(
@@ -661,7 +679,12 @@ class _DashboardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: EdgeInsets.fromLTRB(
+          context.responsive.pagePadding,
+          8,
+          context.responsive.pagePadding,
+          32,
+        ),
         sliver: SliverToBoxAdapter(
           child: Column(
             children: [
