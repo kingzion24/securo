@@ -145,7 +145,12 @@ class _ListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          context.responsive.pagePadding,
+          12,
+          context.responsive.pagePadding,
+          24,
+        ),
         sliver: SliverToBoxAdapter(
           child: SecuroCard(
             padding: const EdgeInsets.all(14),

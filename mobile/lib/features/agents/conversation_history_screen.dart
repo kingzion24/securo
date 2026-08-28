@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/feedback.dart';
 import '../../core/widgets/large_title_scroll.dart';
@@ -64,7 +65,12 @@ class _ConversationHistoryScreenState extends ConsumerState<ConversationHistoryS
       title: 'History',
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            8,
+            context.responsive.pagePadding,
+            40,
+          ),
           sliver: _conversations == null
               ? SliverToBoxAdapter(
                   child: _error != null
