@@ -61,7 +61,7 @@ const ROLE_LABEL_KEY: Record<string, string> = {
 }
 
 // Fallback when a workspace hasn't set its own color yet.
-const DEFAULT_COLOR = '#6366F1'
+const DEFAULT_COLOR = '#0071e3'
 
 function workspaceIcon(w: Workspace): string {
   return w.icon || WORKSPACE_KIND_ICON[w.kind as WorkspaceKind] || 'briefcase'

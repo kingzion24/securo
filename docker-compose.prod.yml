@@ -65,6 +65,12 @@ x-backend-env: &backend-env
   # ollama/openai/openai_compatible for better quality.
   AGENTS_EMBEDDING_PROVIDER: ${AGENTS_EMBEDDING_PROVIDER:-native}
   AGENTS_EMBEDDING_MODEL: ${AGENTS_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+  # market-scraper — feeds Tanzanian finance news/data into one agent's
+  # knowledge base (see backend/scraper). Both IDs are required for the
+  # container to do anything; it exits immediately if either is unset.
+  SCRAPER_AGENT_ID: ${SCRAPER_AGENT_ID:-}
+  SCRAPER_USER_ID: ${SCRAPER_USER_ID:-}
+  SCRAPER_INTERVAL_HOURS: ${SCRAPER_INTERVAL_HOURS:-8}
 
 x-backend-base: &backend-base
   image: ghcr.io/securo-finance/securo-backend:latest
@@ -153,6 +159,15 @@ services:
     command: uvicorn mcp_server.main:app --host 0.0.0.0 --port 8765
     ports:
       - "${AGENTS_MCP_EXTERNAL_HOST_PORT:-127.0.0.1:8765}:8765"
+
+  # Scrapes Tanzanian market-news/data sites on a timer and feeds the
+  # result into an agent's knowledge base (see backend/scraper). No ports —
+  # it's a one-way background loop, not a server. Requires SCRAPER_AGENT_ID
+  # / SCRAPER_USER_ID (see AGENTS_ENABLED block above); exits if unset.
+  market-scraper:
+    <<: *backend-base
+    profiles: [agents]
+    command: python -m scraper.main
 
 volumes:
   pgdata:

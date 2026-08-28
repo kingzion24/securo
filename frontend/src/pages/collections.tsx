@@ -20,7 +20,7 @@ import {
 import { FolderOpen, Plus, Pencil, Trash2 } from 'lucide-react'
 import type { Collection } from '@/types'
 
-const SWATCHES = ['#6366F1', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#64748B']
+const SWATCHES = ['#0071e3', '#32ade6', '#34c759', '#ff9500', '#ff3b30', '#ff2d55', '#5e5ce6', '#6e6e73']
 
 export default function CollectionsPage() {
   const { t } = useTranslation()

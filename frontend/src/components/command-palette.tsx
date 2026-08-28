@@ -139,8 +139,8 @@ const ENTITY_META: Record<SearchHitType, { icon: React.ElementType; tintClass: s
   },
   category: {
     icon: Tag,
-    tintClass: 'text-fuchsia-500 dark:text-fuchsia-300',
-    bgClass: 'bg-fuchsia-500/10',
+    tintClass: 'text-teal-500 dark:text-teal-300',
+    bgClass: 'bg-teal-500/10',
     labelKey: 'cmdk.groups.categories',
     pathFor: (hit) => `/transactions?category_id=${hit.id}`,
   },

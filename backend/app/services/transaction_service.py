@@ -455,11 +455,34 @@ async def get_transactions(
         )
         excluded = Decimal(str(excluded_total or 0))
 
+        # Per-account expense breakdown (same filtered rows, same P/L
+        # definition) — lets the footer show "which account did this
+        # spending actually come out of" alongside the overall totals.
+        # Zero-expense accounts are dropped rather than listed at 0.
+        by_account_rows = await session.execute(
+            select(
+                pnl_subq.c.account_id,
+                func.coalesce(func.sum(func.abs(amount_norm)), 0),
+            )
+            .where(pnl_subq.c.type == "debit")
+            .group_by(pnl_subq.c.account_id)
+        )
+        by_account = sorted(
+            (
+                {"account_id": acc_id, "expense": Decimal(str(total or 0))}
+                for acc_id, total in by_account_rows
+                if acc_id is not None and total
+            ),
+            key=lambda row: row["expense"],
+            reverse=True,
+        )
+
         summary = {
             "income": income,
             "expense": expense,
             "net": income - expense,
             "excluded": excluded,
+            "by_account": by_account,
         }
 
     # Apply ordering (and pagination unless skipped). Bill-view callers

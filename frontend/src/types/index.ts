@@ -966,6 +966,11 @@ export interface PaginatedResponse<T> {
   limit: number
 }
 
+export interface AccountExpenseSummary {
+  account_id: string
+  expense: number
+}
+
 // Income / expense / net totals for all transactions matching the active
 // filters (issue #185) — accompanies the paginated /transactions response.
 export interface TransactionsSummary {
@@ -976,6 +981,9 @@ export interface TransactionsSummary {
   // rows — transfers, treat_as_transfer categories and ignored items (#242).
   excluded: number
   currency: string
+  // Expense total per account, same filtered rows. Zero-expense accounts
+  // are omitted. Sorted by expense descending.
+  by_account: AccountExpenseSummary[]
 }
 
 export interface PaginatedTransactions extends PaginatedResponse<Transaction> {

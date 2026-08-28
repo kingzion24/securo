@@ -40,6 +40,11 @@ def _tag_fx_fallback(tx: TransactionRead, primary_currency: str) -> TransactionR
     return tx
 
 
+class AccountExpenseSummary(BaseModel):
+    account_id: uuid.UUID
+    expense: float
+
+
 class TransactionsSummary(BaseModel):
     """Income / expense / net totals across all rows matching the active
     filters (issue #185). Amounts are in the user's primary currency.
@@ -49,12 +54,17 @@ class TransactionsSummary(BaseModel):
     `excluded` (issue #242) is the absolute total of everything filtered
     out of income/expense for the same rows — paired transfers,
     `treat_as_transfer` categories (transfers, investments, custom) and
-    ignored items — i.e. the complement of `counts_as_pnl()`."""
+    ignored items — i.e. the complement of `counts_as_pnl()`.
+
+    `by_account` breaks the expense total down per account, same filtered
+    rows and P/L definition — accounts with zero expense are omitted, not
+    listed at 0. Sorted by expense descending."""
     income: float
     expense: float
     net: float
     excluded: float
     currency: str
+    by_account: list[AccountExpenseSummary] = []
 
 
 class PaginatedTransactions(BaseModel):

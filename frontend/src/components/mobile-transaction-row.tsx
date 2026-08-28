@@ -106,7 +106,7 @@ export function MobileTransactionRow({
             {tx.description}
           </p>
           {tx.group_id && (
-            <span className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-50 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900 px-1 py-0.5 rounded-full shrink-0">
+            <span className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted border border-border px-1 py-0.5 rounded-full shrink-0">
               {tx.is_shared && tx.parent_owner_name ? tx.parent_owner_name : t('splitGroups.ownerRowBadge', { group: groupName ?? '' })}
             </span>
           )}

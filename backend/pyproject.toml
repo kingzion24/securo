@@ -40,6 +40,9 @@ dependencies = [
     # agents feature pay zero cost (the package is installed but never
     # imported).
     "fastembed>=0.4.0",
+    # HTML parsing for the market-news scraper (Tanzania finance sites).
+    # html.parser backend only — no lxml/C-extension build needed.
+    "beautifulsoup4>=4.12.0",
 ]
 
 [project.optional-dependencies]

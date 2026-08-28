@@ -73,7 +73,7 @@ function formatDate(iso: string, locale: string): string {
   }
 }
 
-const DEFAULT_WORKSPACE_COLOR = '#6366F1'
+const DEFAULT_WORKSPACE_COLOR = '#0071e3'
 const DEFAULT_WORKSPACE_ICON = 'briefcase'
 
 export default function WorkspaceSettingsPage() {

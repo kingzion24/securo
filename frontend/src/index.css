@@ -1,76 +1,96 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Apple Liquid Glass — see /home/zion/.claude/skills/apple-liquid-glass.
+   This file is the one lever the whole app renders through: shadcn's
+   CSS-variable pattern + Tailwind's @theme inline mapping mean every
+   bg-card / border-border / shadow-sm / rounded-xl in the app reads these
+   tokens, so retheming here cascades everywhere for free. */
 :root {
-  --background: #F8F9FB;
-  --foreground: #0F172A;
-  --card: #FFFFFF;
-  --card-foreground: #0F172A;
-  --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --primary: #6366F1;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #EEF2FF;
-  --accent-foreground: #4F46E5;
-  --destructive: #F43F5E;
-  --destructive-foreground: #FFFFFF;
-  --border: #E8ECF1;
-  --input: #E8ECF1;
-  --ring: #6366F1;
-  --radius: 0.625rem;
-  --chart-1: #6366F1;
-  --chart-2: #8B5CF6;
-  --chart-3: #10B981;
-  --chart-4: #F59E0B;
-  --chart-5: #F43F5E;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #0F172A;
-  --sidebar-primary: #6366F1;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F1F5F9;
-  --sidebar-accent-foreground: #4F46E5;
-  --sidebar-border: #E8ECF1;
-  --sidebar-ring: #6366F1;
-  --sidebar-muted: #64748B;
+  --background: #f5f5f7;   /* Apple page ground — cool grey, never warm */
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --card-foreground: #1d1d1f;
+  --popover: #ffffff;
+  --popover-foreground: #1d1d1f;
+  --primary: #0071e3;      /* Apple blue */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f1f3;
+  --secondary-foreground: #1d1d1f;
+  --muted: #f1f1f3;
+  --muted-foreground: #6e6e73;
+  --accent: #eaf3fd;
+  --accent-foreground: #0071e3;
+  --destructive: #ff3b30;  /* Apple system red */
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.07);   /* the hairline itself — used everywhere via border-border */
+  --input: rgba(0, 0, 0, 0.07);
+  --ring: #0071e3;
+  --radius: 0.875rem;   /* base chosen so rounded-xl/2xl/3xl land exactly on Apple's card/panel/hero tiers below */
+  /* Restrained categorical set for charts/legends — Apple system hues
+     (blue/green/orange/indigo/red), not a generic rainbow. */
+  --chart-1: #0071e3;
+  --chart-2: #30d158;
+  --chart-3: #ff9500;
+  --chart-4: #5e5ce6;
+  --chart-5: #ff3b30;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-primary: #0071e3;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f1f3;
+  --sidebar-accent-foreground: #0071e3;
+  --sidebar-border: rgba(0, 0, 0, 0.07);
+  --sidebar-ring: #0071e3;
+  --sidebar-muted: #6e6e73;
+
+  /* Apple-named tiers, for direct use where a Tailwind utility doesn't
+     already cover it (see components.md pill/glass-nav recipes). */
+  --hairline: rgba(0, 0, 0, 0.07);
+  --track: #e8e8ed;
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);   /* sheets/dialogs/popovers enter (~400ms) */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); /* hover/small moves (~200ms) */
 }
 
 .dark {
-  --background: #0C0D12;
-  --foreground: #F0F0F5;
-  --card: #16171F;
-  --card-foreground: #F0F0F5;
-  --popover: #16171F;
-  --popover-foreground: #F0F0F5;
-  --primary: #818CF8;
-  --primary-foreground: #FFFFFF;
-  --secondary: #252836;
-  --secondary-foreground: #F0F0F5;
-  --muted: #252836;
-  --muted-foreground: #8A8F9E;
-  --accent: #1E1B4B;
-  --accent-foreground: #A5B4FC;
-  --destructive: #FB7185;
-  --destructive-foreground: #0C0D12;
-  --border: #2A2D3A;
-  --input: #2A2D3A;
-  --ring: #818CF8;
-  --sidebar: #16171F;
-  --sidebar-foreground: #F0F0F5;
-  --sidebar-primary: #818CF8;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #252836;
-  --sidebar-accent-foreground: #A5B4FC;
-  --sidebar-border: #2A2D3A;
-  --sidebar-ring: #818CF8;
-  --sidebar-muted: #8A8F9E;
+  --background: #000000;
+  --foreground: #f5f5f7;
+  --card: #1c1c1e;
+  --card-foreground: #f5f5f7;
+  --popover: #1c1c1e;
+  --popover-foreground: #f5f5f7;
+  --primary: #0a84ff;      /* Apple blue, dark-mode variant */
+  --primary-foreground: #ffffff;
+  --secondary: #2c2c2e;
+  --secondary-foreground: #f5f5f7;
+  --muted: #2c2c2e;
+  --muted-foreground: #98989d;
+  --accent: #0a2540;
+  --accent-foreground: #4dabf7;
+  --destructive: #ff453a;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: #0a84ff;
+  --chart-1: #0a84ff;
+  --chart-2: #32d74b;
+  --chart-3: #ff9f0a;
+  --chart-4: #5e5ce6;
+  --chart-5: #ff453a;
+  --sidebar: #1c1c1e;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #0a84ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2c2c2e;
+  --sidebar-accent-foreground: #4dabf7;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #0a84ff;
+  --sidebar-muted: #98989d;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --track: #3a3a3c;
 }
 
 @theme inline {
@@ -81,6 +101,14 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  /* Two-layer Apple shadows (never one hard shadow) mapped onto Tailwind's
+     existing shadow-sm/md/lg scale, so all ~90 existing shadow-* call
+     sites upgrade for free instead of needing a file-by-file sweep.
+     card (sm) / panel (md) / overlay — modal, popover, dropdown (lg). */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+  --shadow-md: 0 1px 3px rgba(0,0,0,0.05), 0 14px 40px rgba(0,0,0,0.05);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10), 0 30px 80px rgba(0,0,0,0.24);
+  --shadow-xl: 0 2px 8px rgba(0,0,0,0.12), 0 30px 80px rgba(0,0,0,0.28);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -121,7 +149,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+      'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
     font-feature-settings: "cv02","cv03","cv04","cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -190,7 +219,7 @@
   width: 62%;
   height: 62%;
   opacity: 0.55;
-  background: radial-gradient(circle at center, #818cf8 0%, transparent 70%);
+  background: radial-gradient(circle at center, #0a84ff 0%, transparent 70%);
   animation: securo-aurora-1 24s ease-in-out infinite;
 }
 .securo-aurora-2 {
@@ -199,7 +228,7 @@
   width: 68%;
   height: 68%;
   opacity: 0.5;
-  background: radial-gradient(circle at center, #a78bfa 0%, transparent 70%);
+  background: radial-gradient(circle at center, #5e5ce6 0%, transparent 70%);
   animation: securo-aurora-2 29s ease-in-out infinite;
 }
 .securo-aurora-3 {
@@ -208,12 +237,74 @@
   width: 46%;
   height: 46%;
   opacity: 0.4;
-  background: radial-gradient(circle at center, #c4b5fd 0%, transparent 70%);
+  background: radial-gradient(circle at center, #8b8cf0 0%, transparent 70%);
   animation: securo-aurora-3 33s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .securo-aurora {
     animation: none;
+  }
+}
+
+/* Apple Liquid Glass — the three independent accessibility signals
+   (motion.md §8). "Reduced" means gentler, not absent, but the standard
+   near-zero-duration pattern below is the accepted baseline: every
+   animation/transition in the app collapses to effectively instant rather
+   than being selectively softened, which is the safer default for anyone
+   who has explicitly asked the OS for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Glass surfaces fall back to solid + no blur when the user has asked the
+   OS to reduce transparency. Targets the Radix data-slot markers already
+   on every overlay primitive (dialog/popover/select/dropdown-menu), so it
+   stays correct even as those components evolve. */
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="dialog-overlay"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  [data-slot="dialog-content"] {
+    background-color: var(--background) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  [data-slot="popover-content"],
+  [data-slot="select-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"] {
+    background-color: var(--popover) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  header.sticky {
+    background-color: var(--sidebar) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  [data-slot="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot="select-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"] {
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0.35);
+  }
+  .dark [data-slot="dialog-content"],
+  .dark [data-slot="popover-content"],
+  .dark [data-slot="select-content"],
+  .dark [data-slot="dropdown-menu-content"],
+  .dark [data-slot="dropdown-menu-sub-content"] {
+    border-color: rgba(255, 255, 255, 0.4);
   }
 }

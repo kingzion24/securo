@@ -40,8 +40,8 @@ function getGoalIcon(iconKey: string | null) {
 }
 
 const PRESET_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#06B6D4', '#F97316',
+  '#0071e3', '#34c759', '#ff9500', '#ff3b30',
+  '#5e5ce6', '#ff2d55', '#32ade6', '#a2845e',
 ]
 
 const SELECT_CLASS = 'w-full border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary'

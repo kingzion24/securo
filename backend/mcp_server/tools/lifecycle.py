@@ -58,9 +58,13 @@ async def list_recurring_transactions(
 @tool(
     name="list_assets",
     description=(
-        "List the user's investments / assets (stocks, crypto, CDBs, real "
-        "estate, etc.) with current value and grouping. Use for 'what "
-        "investments do I have?' or 'show my portfolio'."
+        "List the user's investments / assets (stocks, bond funds, private "
+        "investments, real estate, etc.) with current value, cost basis, "
+        "unrealized/realized gain-loss, units held, and pricing. Use for "
+        "'what investments do I have?', 'show my portfolio', or questions "
+        "about a specific holding (e.g. a UTT bond fund) — this covers both "
+        "market-priced holdings (valued by NAV/ticker) and manually-tracked "
+        "ones (e.g. a private investment)."
     ),
     parameters={
         "type": "object",
@@ -84,10 +88,21 @@ async def list_assets(
             "name": d.get("name"),
             "type": d.get("type"),
             "currency": d.get("currency"),
+            "valuation_method": d.get("valuation_method"),
             "current_value": num(d.get("current_value")),
             "current_value_primary": num(d.get("current_value_primary")),
             "ticker": d.get("ticker"),
             "units": num(d.get("units")),
+            "average_price": num(d.get("average_price")),
+            "total_invested": num(d.get("total_invested")),
+            "realized_gain": num(d.get("realized_gain")),
+            "gain_loss": num(d.get("gain_loss")),
+            "gain_loss_primary": num(d.get("gain_loss_primary")),
+            "last_price": num(d.get("last_price")),
+            "last_price_at": d.get("last_price_at"),
+            "purchase_date": d.get("purchase_date"),
+            "source": d.get("source"),
+            "transaction_count": d.get("transaction_count"),
             "group_id": str(d.get("group_id")) if d.get("group_id") else None,
             "is_archived": bool(d.get("is_archived", False)),
         })
