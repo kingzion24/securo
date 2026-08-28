@@ -79,3 +79,8 @@ const Map<String, IconData> _lucideIconMap = {
 /// picker after this map was last updated.
 IconData lucideIcon(String? name) =>
     _lucideIconMap[name] ?? LucideIcons.circleHelp;
+
+/// The full set of icon names the category/group icon picker offers — the
+/// same list `frontend/src/lib/category-icons.ts` does, minus the
+/// non-category defaults (`folder`, `users`, etc.) at the end of the map.
+final List<String> categoryIconNames = _lucideIconMap.keys.take(56).toList();

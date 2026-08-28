@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/format/currencies.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
+import '../admin/admin_screen.dart';
+import '../agents/agents_screen.dart';
 import '../auth/auth_controller.dart';
 import '../auth/server_dialog.dart';
+import '../workspace/workspace_settings_screen.dart';
 
 /// Currencies offered in the picker — the ISO codes `frontend/src/lib/format.ts`
 /// treats as first-class, kept in the same order as the web app's selector.
-const _currencyOptions = [
-  'USD', 'EUR', 'GBP', 'BRL', 'CAD', 'AUD', 'CHF', 'ARS', 'JPY', 'MXN',
-  'INR', 'SEK', 'DKK', 'NOK', 'PLN', 'CZK', 'HUF', 'RON', 'TZS', 'KES',
-];
-
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -105,9 +104,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // than this picker's common-case shortlist; if the account's current
     // currency isn't on it, it still has to appear so the dropdown has a
     // valid selected value instead of throwing.
-    final currencyChoices = _currencyOptions.contains(currentCurrency)
-        ? _currencyOptions
-        : [currentCurrency, ..._currencyOptions];
+    final currencyChoices = kCurrencyOptions.contains(currentCurrency)
+        ? kCurrencyOptions
+        : [currentCurrency, ...kCurrencyOptions];
 
     return LargeTitleScrollView(
       title: 'Settings',
@@ -215,6 +214,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
+          const SizedBox(height: 24),
+          const SectionTitle('Workspace'),
+          SecuroCard(
+            child: Pressable(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const WorkspaceSettingsScreen()),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.business_outlined, size: 18, color: colors.mutedForeground),
+                  const SizedBox(width: 10),
+                  const Expanded(child: Text('Workspace settings')),
+                  Icon(Icons.chevron_right, color: colors.mutedForeground),
+                ],
+              ),
+            ),
+          ),
+          if (auth.isAgentsEnabled) ...[
+            const SizedBox(height: 24),
+            const SectionTitle('Agents'),
+            SecuroCard(
+              child: Pressable(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AgentsScreen()),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.smart_toy_outlined, size: 18, color: colors.mutedForeground),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('AI agents')),
+                    Icon(Icons.chevron_right, color: colors.mutedForeground),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (user?.isSuperuser == true) ...[
+            const SizedBox(height: 24),
+            const SectionTitle('Admin'),
+            SecuroCard(
+              child: Pressable(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AdminScreen()),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.admin_panel_settings_outlined,
+                        size: 18, color: colors.mutedForeground),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Admin settings')),
+                    Icon(Icons.chevron_right, color: colors.mutedForeground),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           const SectionTitle('Server'),
           SecuroCard(

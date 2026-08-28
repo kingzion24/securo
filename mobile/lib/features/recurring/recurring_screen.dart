@@ -4,13 +4,19 @@ import 'package:intl/intl.dart';
 
 import '../../core/format/display_settings.dart';
 import '../../core/format/money.dart';
+import '../../core/bloc/resource_list_cubit.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/feedback.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/recurring_transaction.dart';
+import '../workspace/workspace_controller.dart';
+import 'recurring_form_screen.dart';
 import 'recurring_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 final recurringRepositoryProvider = Provider<RecurringRepository>(
   (ref) => RecurringRepository(ref.watch(apiClientProvider)),
@@ -23,6 +29,7 @@ class RecurringScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(recurringRepositoryProvider);
     final locale = ref.watch(displayLocaleProvider);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
 
     return ResourceListScreen<RecurringTransaction>(
       title: 'Recurring',
@@ -30,16 +37,67 @@ class RecurringScreen extends ConsumerWidget {
       emptyIcon: Icons.repeat,
       emptyTitle: 'No recurring transactions',
       emptyMessage: 'Bills and subscriptions that repeat show up here.',
-      itemBuilder: (context, item) => _RecurringTile(item: item, locale: locale),
+      actions: !canEdit
+          ? null
+          : [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New recurring',
+                  onPressed: () async {
+                    final created = await pushFormScreen<bool>(
+                      context,
+                      const RecurringFormScreen(),
+                    );
+                    if (created == true && context.mounted) {
+                      context.read<ResourceListCubit<RecurringTransaction>>().load();
+                    }
+                  },
+                ),
+              ),
+            ],
+      itemBuilder: (context, item) => _RecurringTile(
+        item: item,
+        locale: locale,
+        canEdit: canEdit,
+        repository: repository,
+      ),
     );
   }
 }
 
 class _RecurringTile extends StatelessWidget {
-  const _RecurringTile({required this.item, this.locale});
+  const _RecurringTile({
+    required this.item,
+    required this.canEdit,
+    required this.repository,
+    this.locale,
+  });
 
   final RecurringTransaction item;
+  final bool canEdit;
+  final RecurringRepository repository;
   final String? locale;
+
+  Future<void> _edit(BuildContext context) async {
+    if (!canEdit) return;
+    final saved = await pushFormScreen<bool>(context, RecurringFormScreen(item: item));
+    if (saved == true && context.mounted) {
+      context.read<ResourceListCubit<RecurringTransaction>>().load();
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    if (!canEdit) return;
+    final confirmed = await confirmDelete(context, title: 'Delete "${item.description}"?');
+    if (!confirmed || !context.mounted) return;
+    try {
+      await repository.delete(item.id);
+      if (context.mounted) context.read<ResourceListCubit<RecurringTransaction>>().load();
+    } catch (error) {
+      if (context.mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +106,8 @@ class _RecurringTile extends StatelessWidget {
     final next = DateTime.tryParse(item.nextOccurrence);
 
     return Pressable(
-      onTap: () {},
+      onTap: () => _edit(context),
+      onLongPress: () => _delete(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(

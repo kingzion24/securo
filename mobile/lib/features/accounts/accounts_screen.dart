@@ -9,9 +9,12 @@ import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../models/account.dart';
 import '../workspace/workspace_controller.dart';
+import 'account_detail_screen.dart';
+import 'account_form_screen.dart';
 import 'account_type.dart';
 import 'accounts_repository.dart';
 import 'bloc/accounts_bloc.dart';
@@ -40,6 +43,7 @@ class _AccountsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final displayCurrency = ref.watch(displayCurrencyProvider);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
     final bloc = context.watch<AccountsBloc>();
     final state = bloc.state;
 
@@ -62,6 +66,20 @@ class _AccountsView extends ConsumerWidget {
           onPressed: () =>
               context.read<AccountsBloc>().add(const ClosedAccountsToggled()),
         ),
+        if (canEdit)
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'New account',
+              onPressed: () async {
+                final created =
+                    await pushFormScreen<bool>(context, const AccountFormScreen());
+                if (created == true && context.mounted) {
+                  context.read<AccountsBloc>().add(const AccountsRequested());
+                }
+              },
+            ),
+          ),
       ],
       slivers: switch (state.status) {
         AccountsStatus.initial ||
@@ -83,6 +101,7 @@ class _AccountsView extends ConsumerWidget {
             state: state,
             locale: locale,
             displayCurrency: displayCurrency,
+            canEdit: canEdit,
           ),
       },
     );
@@ -92,6 +111,7 @@ class _AccountsView extends ConsumerWidget {
 List<Widget> _accountsSlivers({
   required AccountsState state,
   required String displayCurrency,
+  required bool canEdit,
   String? locale,
 }) {
   if (state.accounts.isEmpty) {
@@ -135,6 +155,7 @@ List<Widget> _accountsSlivers({
                             account: entry.value[i],
                             displayCurrency: displayCurrency,
                             locale: locale,
+                            canEdit: canEdit,
                           ),
                         ],
                       ],
@@ -197,11 +218,13 @@ class _AccountTile extends StatelessWidget {
   const _AccountTile({
     required this.account,
     required this.displayCurrency,
+    required this.canEdit,
     this.locale,
   });
 
   final Account account;
   final String displayCurrency;
+  final bool canEdit;
   final String? locale;
 
   @override
@@ -218,9 +241,13 @@ class _AccountTile extends StatelessWidget {
     final balanceCurrency = usingPrimary ? displayCurrency : account.currency;
 
     return Pressable(
-      onTap: () {
-        // Account detail is a later slice; tapping is wired now so the row
-        // already feels alive rather than dead until then.
+      onTap: () async {
+        final deleted = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => AccountDetailScreen(account: account)),
+        );
+        if (deleted == true && context.mounted) {
+          context.read<AccountsBloc>().add(const AccountsRequested());
+        }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -281,6 +308,10 @@ class _AccountTile extends StatelessWidget {
                 color: colors.foreground,
               ),
             ),
+            if (canEdit) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 18, color: colors.mutedForeground),
+            ],
           ],
         ),
       ),

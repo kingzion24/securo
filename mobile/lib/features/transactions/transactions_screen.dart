@@ -9,16 +9,27 @@ import '../../core/format/money.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/feedback.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/large_title_scroll.dart';
 import '../../core/widgets/panels.dart';
 import '../../core/widgets/pressable.dart';
+import '../../models/category.dart';
 import '../../models/transaction.dart';
+import '../categories/categories_screen.dart';
 import '../workspace/workspace_controller.dart';
+import 'attachments_repository.dart';
 import 'bloc/transactions_bloc.dart';
+import 'transaction_form_screen.dart';
 import 'transactions_repository.dart';
+import 'transfer_form_screen.dart';
 
 final transactionsRepositoryProvider = Provider<TransactionsRepository>(
   (ref) => TransactionsRepository(ref.watch(apiClientProvider)),
+);
+
+final attachmentsRepositoryProvider = Provider<AttachmentsRepository>(
+  (ref) => AttachmentsRepository(ref.watch(apiClientProvider)),
 );
 
 class TransactionsScreen extends ConsumerWidget {
@@ -45,6 +56,8 @@ class _TransactionsView extends ConsumerStatefulWidget {
 class _TransactionsViewState extends ConsumerState<_TransactionsView> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
+  bool _selecting = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void initState() {
@@ -67,19 +80,127 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
     }
   }
 
+  void _toggleSelectionMode() {
+    setState(() {
+      _selecting = !_selecting;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _bulkDelete() async {
+    final confirmed = await confirmDelete(
+      context,
+      title: 'Delete ${_selectedIds.length} transactions?',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(transactionsRepositoryProvider).bulkDelete(_selectedIds.toList());
+      if (!mounted) return;
+      _toggleSelectionMode();
+      context.read<TransactionsBloc>().add(const TransactionsRequested());
+    } catch (error) {
+      if (mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
+
+  Future<void> _bulkCategorize() async {
+    List<Category> categories;
+    try {
+      categories = await ref.read(categoriesRepositoryProvider).list();
+    } catch (error) {
+      if (mounted) showAppToast(context, '$error', isError: true);
+      return;
+    }
+    if (!mounted) return;
+    final picked = await showPickerSheet<Category>(
+      context,
+      title: 'Set category',
+      items: categories,
+      labelBuilder: (c) => c.name,
+    );
+    if (picked == null || !mounted) return;
+    try {
+      await ref
+          .read(transactionsRepositoryProvider)
+          .bulkCategorize(_selectedIds.toList(), picked.id);
+      if (!mounted) return;
+      _toggleSelectionMode();
+      context.read<TransactionsBloc>().add(const TransactionsRequested());
+    } catch (error) {
+      if (mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locale = ref.watch(currentWorkspaceProvider).valueOrNull?.locale;
     final state = context.watch<TransactionsBloc>().state;
     final colors = SecuroTheme.of(context);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
 
     return LargeTitleScrollView(
-      title: 'Transactions',
+      title: _selecting ? '${_selectedIds.length} selected' : 'Transactions',
       controller: _scrollController,
       onRefresh: () async {
         context.read<TransactionsBloc>().add(const TransactionsRefreshed());
         await Future<void>.delayed(const Duration(milliseconds: 400));
       },
+      actions: !canEdit
+          ? null
+          : _selecting
+              ? [
+                  IconButton(
+                    icon: const Icon(Icons.sell_outlined),
+                    tooltip: 'Set category',
+                    onPressed: _selectedIds.isEmpty ? null : _bulkCategorize,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Delete',
+                    onPressed: _selectedIds.isEmpty ? null : _bulkDelete,
+                  ),
+                  TextButton(
+                    onPressed: _toggleSelectionMode,
+                    child: const Text('Done'),
+                  ),
+                ]
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.checklist),
+                    tooltip: 'Select',
+                    onPressed: _toggleSelectionMode,
+                  ),
+                  Builder(
+                    builder: (context) => PopupMenuButton<String>(
+                      icon: const Icon(Icons.add),
+                      onSelected: (value) async {
+                        final created = await pushFormScreen<bool>(
+                          context,
+                          value == 'transfer'
+                              ? const TransferFormScreen()
+                              : const TransactionFormScreen(),
+                        );
+                        if (created == true && context.mounted) {
+                          context.read<TransactionsBloc>().add(const TransactionsRequested());
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'transaction', child: Text('New transaction')),
+                        PopupMenuItem(value: 'transfer', child: Text('Transfer between accounts')),
+                      ],
+                    ),
+                  ),
+                ],
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -124,7 +245,18 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
                 ),
               ),
             ],
-          _ => _transactionSlivers(state: state, locale: locale),
+          _ => _transactionSlivers(
+              state: state,
+              locale: locale,
+              canEdit: canEdit,
+              selecting: _selecting,
+              selectedIds: _selectedIds,
+              onLongPressStart: _selecting ? null : (id) {
+                _toggleSelectionMode();
+                _toggleSelected(id);
+              },
+              onToggleSelected: _toggleSelected,
+            ),
         },
       ],
     );
@@ -133,6 +265,11 @@ class _TransactionsViewState extends ConsumerState<_TransactionsView> {
 
 List<Widget> _transactionSlivers({
   required TransactionsState state,
+  required bool canEdit,
+  required bool selecting,
+  required Set<String> selectedIds,
+  required void Function(String id)? onLongPressStart,
+  required void Function(String id) onToggleSelected,
   String? locale,
 }) {
   final grouped = state.groupedByDate;
@@ -181,7 +318,15 @@ List<Widget> _transactionSlivers({
                     children: [
                       for (var i = 0; i < txs.length; i++) ...[
                         if (i > 0) Divider(height: 1, color: colors.border),
-                        _TransactionTile(transaction: txs[i], locale: locale),
+                        _TransactionTile(
+                          transaction: txs[i],
+                          locale: locale,
+                          canEdit: canEdit,
+                          selecting: selecting,
+                          selected: selectedIds.contains(txs[i].id),
+                          onLongPressStart: onLongPressStart,
+                          onToggleSelected: onToggleSelected,
+                        ),
                       ],
                     ],
                   ),
@@ -208,10 +353,34 @@ String _dayLabel(String isoDate, String? locale) {
 }
 
 class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction, this.locale});
+  const _TransactionTile({
+    required this.transaction,
+    required this.canEdit,
+    required this.selecting,
+    required this.selected,
+    required this.onLongPressStart,
+    required this.onToggleSelected,
+    this.locale,
+  });
 
   final Transaction transaction;
+  final bool canEdit;
+  final bool selecting;
+  final bool selected;
+  final void Function(String id)? onLongPressStart;
+  final void Function(String id) onToggleSelected;
   final String? locale;
+
+  Future<void> _edit(BuildContext context) async {
+    if (!canEdit) return;
+    final saved = await pushFormScreen<bool>(
+      context,
+      TransactionFormScreen(transaction: transaction),
+    );
+    if (saved == true && context.mounted) {
+      context.read<TransactionsBloc>().add(const TransactionsRequested());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,13 +390,24 @@ class _TransactionTile extends StatelessWidget {
     final categoryColor = parseHexColor(transaction.category?.color) ?? colors.muted;
 
     return Pressable(
-      onTap: () {
-        // Transaction detail is a later slice.
-      },
+      onTap: selecting
+          ? () => onToggleSelected(transaction.id)
+          : () => _edit(context),
+      onLongPress: selecting || !canEdit || onLongPressStart == null
+          ? null
+          : () => onLongPressStart!(transaction.id),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
+            if (selecting) ...[
+              Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                size: 22,
+                color: selected ? colors.primary : colors.mutedForeground,
+              ),
+              const SizedBox(width: 10),
+            ],
             Container(
               width: 40,
               height: 40,

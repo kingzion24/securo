@@ -29,6 +29,10 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
 
   final TransactionsRepository _repository;
 
+  /// Exposed so a row's delete action doesn't need its own route to the
+  /// repository — the bloc already holds one.
+  Future<void> deleteTransaction(String id) => _repository.delete(id);
+
   Future<void> _onRequested(
     TransactionsRequested event,
     Emitter<TransactionsState> emit,

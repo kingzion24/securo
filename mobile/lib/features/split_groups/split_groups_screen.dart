@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/bloc/resource_list_cubit.dart';
 import '../../core/format/color.dart';
 import '../../core/icons/lucide_icon_map.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/split_group.dart';
+import '../workspace/workspace_controller.dart';
+import 'group_detail_screen.dart';
+import 'group_form_screen.dart';
 import 'split_groups_repository.dart';
 
 final splitGroupsRepositoryProvider = Provider<SplitGroupsRepository>(
@@ -21,12 +27,31 @@ class SplitGroupsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(splitGroupsRepositoryProvider);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
+
     return ResourceListScreen<SplitGroup>(
       title: 'Groups',
       fetch: repository.list,
       emptyIcon: Icons.call_split,
       emptyTitle: 'No groups yet',
       emptyMessage: 'Split expenses with roommates, trips, or projects here.',
+      actions: !canEdit
+          ? null
+          : [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New group',
+                  onPressed: () async {
+                    final created =
+                        await pushFormScreen<bool>(context, const GroupFormScreen());
+                    if (created == true && context.mounted) {
+                      context.read<ResourceListCubit<SplitGroup>>().load();
+                    }
+                  },
+                ),
+              ),
+            ],
       itemBuilder: (context, group) => _GroupTile(group: group),
     );
   }
@@ -42,7 +67,14 @@ class _GroupTile extends StatelessWidget {
     final color = parseHexColor(group.color) ?? colors.chart4;
 
     return Pressable(
-      onTap: () {},
+      onTap: () async {
+        final deleted = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => GroupDetailScreen(group: group)),
+        );
+        if (deleted == true && context.mounted) {
+          context.read<ResourceListCubit<SplitGroup>>().load();
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -75,6 +107,8 @@ class _GroupTile extends StatelessWidget {
                   .labelSmall
                   ?.copyWith(color: colors.mutedForeground),
             ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, size: 18, color: colors.mutedForeground),
           ],
         ),
       ),

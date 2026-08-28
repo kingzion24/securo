@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/bloc/resource_list_cubit.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/feedback.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/payee.dart';
+import '../workspace/workspace_controller.dart';
+import 'payee_form_screen.dart';
 import 'payees_repository.dart';
 
 final payeesRepositoryProvider = Provider<PayeesRepository>(
@@ -19,20 +25,62 @@ class PayeesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(payeesRepositoryProvider);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
+
     return ResourceListScreen<Payee>(
       title: 'Payees',
       fetch: repository.list,
       emptyIcon: Icons.people_outline,
-      emptyTitle: 'No payees yet',
       emptyMessage: 'People and businesses you pay or get paid by show up here.',
-      itemBuilder: (context, payee) => _PayeeTile(payee: payee),
+      emptyTitle: 'No payees yet',
+      actions: !canEdit
+          ? null
+          : [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New payee',
+                  onPressed: () async {
+                    final created =
+                        await pushFormScreen<bool>(context, const PayeeFormScreen());
+                    if (created == true && context.mounted) {
+                      context.read<ResourceListCubit<Payee>>().load();
+                    }
+                  },
+                ),
+              ),
+            ],
+      itemBuilder: (context, payee) =>
+          _PayeeTile(payee: payee, canEdit: canEdit, repository: repository),
     );
   }
 }
 
 class _PayeeTile extends StatelessWidget {
-  const _PayeeTile({required this.payee});
+  const _PayeeTile({required this.payee, required this.canEdit, required this.repository});
   final Payee payee;
+  final bool canEdit;
+  final PayeesRepository repository;
+
+  Future<void> _edit(BuildContext context) async {
+    if (!canEdit) return;
+    final saved = await pushFormScreen<bool>(context, PayeeFormScreen(payee: payee));
+    if (saved == true && context.mounted) {
+      context.read<ResourceListCubit<Payee>>().load();
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    if (!canEdit) return;
+    final confirmed = await confirmDelete(context, title: 'Delete "${payee.name}"?');
+    if (!confirmed || !context.mounted) return;
+    try {
+      await repository.delete(payee.id);
+      if (context.mounted) context.read<ResourceListCubit<Payee>>().load();
+    } catch (error) {
+      if (context.mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +88,8 @@ class _PayeeTile extends StatelessWidget {
     final initial = payee.name.isNotEmpty ? payee.name[0].toUpperCase() : '?';
 
     return Pressable(
-      onTap: () {},
+      onTap: () => _edit(context),
+      onLongPress: () => _delete(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -80,6 +129,10 @@ class _PayeeTile extends StatelessWidget {
                     .labelSmall
                     ?.copyWith(color: colors.mutedForeground),
               ),
+            if (canEdit) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right, size: 18, color: colors.mutedForeground),
+            ],
           ],
         ),
       ),

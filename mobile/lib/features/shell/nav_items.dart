@@ -61,6 +61,17 @@ const navSections = <NavSection>[
       icon: Icons.upload_outlined,
       module: 'import',
     ),
+    // Not in the web sidebar either (reached from elsewhere in that app),
+    // but it's a real full-CRUD page with no module flag of its own — tying
+    // it to the accounts module (what it groups) rather than inventing a
+    // module key the backend doesn't know, which would just hide it.
+    NavLink(
+      key: 'collections',
+      path: '/collections',
+      label: 'Collections',
+      icon: Icons.folder_outlined,
+      module: 'accounts',
+    ),
   ]),
   NavSection('Analysis', [
     NavLink(

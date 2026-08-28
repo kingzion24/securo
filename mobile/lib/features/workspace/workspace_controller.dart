@@ -20,6 +20,65 @@ class WorkspaceRepository {
     final data = await _api.get<Map<String, dynamic>>('/workspaces/current');
     return Workspace.fromJson(data);
   }
+
+  Future<Map<String, int>> stats(String workspaceId) async {
+    final data = await _api.get<Map<String, dynamic>>('/workspaces/$workspaceId/stats');
+    return data.map((k, v) => MapEntry(k, v as int));
+  }
+
+  Future<Workspace> update(
+    String workspaceId, {
+    String? name,
+    String? icon,
+    String? color,
+    String? defaultCurrency,
+    String? locale,
+    String? taxJurisdiction,
+  }) async {
+    final data = await _api.patch<Map<String, dynamic>>(
+      '/workspaces/$workspaceId',
+      body: {
+        'name': ?name,
+        'icon': ?icon,
+        'color': ?color,
+        'default_currency': ?defaultCurrency,
+        'locale': ?locale,
+        'tax_jurisdiction': ?taxJurisdiction,
+      },
+    );
+    return Workspace.fromJson(data);
+  }
+
+  Future<List<WorkspaceMember>> members(String workspaceId) async {
+    final data = await _api.get<List<dynamic>>('/workspaces/$workspaceId/members');
+    return data
+        .map((e) => WorkspaceMember.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> invite(
+    String workspaceId, {
+    required String email,
+    String role = 'editor',
+    String? password,
+  }) async {
+    await _api.post<Map<String, dynamic>>(
+      '/workspaces/$workspaceId/members',
+      body: {'email': email, 'role': role, 'password': ?password},
+    );
+  }
+
+  Future<void> updateMemberRole(String workspaceId, String userId, String role) =>
+      _api.patch<Map<String, dynamic>>(
+        '/workspaces/$workspaceId/members/$userId',
+        body: {'role': role},
+      );
+
+  Future<void> removeMember(String workspaceId, String userId) =>
+      _api.delete<dynamic>('/workspaces/$workspaceId/members/$userId');
+
+  Future<void> archive(String workspaceId) =>
+      _api.post<Map<String, dynamic>>('/workspaces/$workspaceId/archive');
 }
 
 final workspaceRepositoryProvider = Provider<WorkspaceRepository>(

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/bloc/resource_list_cubit.dart';
 import '../../core/format/color.dart';
 import '../../core/format/display_settings.dart';
 import '../../core/format/money.dart';
 import '../../core/icons/lucide_icon_map.dart';
 import '../../core/providers.dart';
 import '../../core/theme/theme.dart';
+import '../../core/widgets/feedback.dart';
+import '../../core/widgets/form_screen.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/resource_list_screen.dart';
 import '../../models/goal.dart';
+import '../workspace/workspace_controller.dart';
+import 'goal_form_screen.dart';
 import 'goals_repository.dart';
 
 final goalsRepositoryProvider = Provider<GoalsRepository>(
@@ -23,6 +29,7 @@ class GoalsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(goalsRepositoryProvider);
     final locale = ref.watch(displayLocaleProvider);
+    final canEdit = ref.watch(currentWorkspaceProvider).valueOrNull?.canEdit ?? true;
 
     return ResourceListScreen<GoalSummary>(
       title: 'Goals',
@@ -30,16 +37,61 @@ class GoalsScreen extends ConsumerWidget {
       emptyIcon: Icons.flag_outlined,
       emptyTitle: 'No goals yet',
       emptyMessage: 'Set a target to save toward and track progress here.',
-      itemBuilder: (context, goal) => _GoalTile(goal: goal, locale: locale),
+      actions: !canEdit
+          ? null
+          : [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New goal',
+                  onPressed: () async {
+                    final created =
+                        await pushFormScreen<bool>(context, const GoalFormScreen());
+                    if (created == true && context.mounted) {
+                      context.read<ResourceListCubit<GoalSummary>>().load();
+                    }
+                  },
+                ),
+              ),
+            ],
+      itemBuilder: (context, goal) =>
+          _GoalTile(goal: goal, locale: locale, canEdit: canEdit, repository: repository),
     );
   }
 }
 
 class _GoalTile extends StatelessWidget {
-  const _GoalTile({required this.goal, this.locale});
+  const _GoalTile({
+    required this.goal,
+    required this.canEdit,
+    required this.repository,
+    this.locale,
+  });
 
   final GoalSummary goal;
+  final bool canEdit;
+  final GoalsRepository repository;
   final String? locale;
+
+  Future<void> _edit(BuildContext context) async {
+    if (!canEdit) return;
+    final saved = await pushFormScreen<bool>(context, GoalFormScreen(goal: goal));
+    if (saved == true && context.mounted) {
+      context.read<ResourceListCubit<GoalSummary>>().load();
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    if (!canEdit) return;
+    final confirmed = await confirmDelete(context, title: 'Delete "${goal.name}"?');
+    if (!confirmed || !context.mounted) return;
+    try {
+      await repository.delete(goal.id);
+      if (context.mounted) context.read<ResourceListCubit<GoalSummary>>().load();
+    } catch (error) {
+      if (context.mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +100,8 @@ class _GoalTile extends StatelessWidget {
     final progress = (goal.percentage / 100).clamp(0, 1).toDouble();
 
     return Pressable(
-      onTap: () {},
+      onTap: () => _edit(context),
+      onLongPress: () => _delete(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(

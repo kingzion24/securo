@@ -51,6 +51,11 @@ class Workspace with _$Workspace {
   bool hasModule(String module) => enabledModules.contains(module);
 
   bool get canEdit => role?.canEdit ?? true;
+
+  /// Workspace settings (rename, invite/remove members, archive) are gated
+  /// tighter than general editing — an `editor` can edit financial data but
+  /// not the workspace itself, only `owner`/`manager` can.
+  bool get canManage => role == WorkspaceRole.owner || role == WorkspaceRole.manager;
 }
 
 @freezed

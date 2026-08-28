@@ -10,6 +10,7 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/budgets/budgets_screen.dart';
 import 'features/categories/categories_screen.dart';
+import 'features/collections/collections_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/goals/goals_screen.dart';
 import 'features/import/import_screen.dart';
@@ -108,6 +109,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const SplitGroupsScreen(),
           ),
           GoRoute(path: '/rules', builder: (_, _) => const RulesScreen()),
+          GoRoute(
+            path: '/collections',
+            builder: (_, _) => const CollectionsScreen(),
+          ),
         ],
       ),
     ],

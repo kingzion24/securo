@@ -14,6 +14,9 @@ class RecurringTransaction {
     required this.frequency,
     required this.nextOccurrence,
     required this.isActive,
+    this.accountId,
+    this.categoryId,
+    this.dayOfMonth,
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) =>
@@ -26,6 +29,9 @@ class RecurringTransaction {
         frequency: json['frequency'] as String? ?? 'monthly',
         nextOccurrence: json['next_occurrence'] as String,
         isActive: json['is_active'] as bool? ?? true,
+        accountId: json['account_id'] as String?,
+        categoryId: json['category_id'] as String?,
+        dayOfMonth: json['day_of_month'] as int?,
       );
 
   final String id;
@@ -36,6 +42,9 @@ class RecurringTransaction {
   final String frequency;
   final String nextOccurrence;
   final bool isActive;
+  final String? accountId;
+  final String? categoryId;
+  final int? dayOfMonth;
 
   double get signedAmount => type == 'credit' ? amount.abs() : -amount.abs();
 }
