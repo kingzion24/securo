@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format/money.dart';
+import '../../core/responsive.dart';
 import '../../core/theme/theme.dart';
 import '../../core/widgets/app_dialog.dart';
 import '../../core/widgets/feedback.dart';
@@ -156,7 +157,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ],
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.pagePadding,
+            12,
+            context.responsive.pagePadding,
+            100,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,16 +249,29 @@ class _BalanceRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(member?.name ?? 'Member', style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(
+              member?.name ?? 'Member',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
-          Text(
-            formatMoney(line.amountInDefaultCurrency.abs(), currency: currency),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            owesYou ? 'owes you' : 'you owe',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.mutedForeground),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatMoney(line.amountInDefaultCurrency.abs(), currency: currency),
+                style:
+                    Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                owesYou ? 'owes you' : 'you owe',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: colors.mutedForeground),
+              ),
+            ],
           ),
         ],
       ),
