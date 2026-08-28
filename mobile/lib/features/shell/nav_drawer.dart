@@ -172,13 +172,16 @@ class _NavTile extends StatelessWidget {
               children: [
                 Icon(link.icon, size: 19, color: foreground),
                 const SizedBox(width: 12),
-                Text(
-                  link.label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: foreground,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
-                      ),
+                Expanded(
+                  child: Text(
+                    link.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: foreground,
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                  ),
                 ),
               ],
             ),
