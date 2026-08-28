@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/bloc/resource_list_cubit.dart';
 import '../../core/format/display_settings.dart';
@@ -100,6 +102,128 @@ class _AssetTile extends StatelessWidget {
     }
   }
 
+  Future<void> _refreshPrice(BuildContext context) async {
+    try {
+      await repository.refreshPrice(asset.id);
+      if (context.mounted) context.read<ResourceListCubit<Asset>>().load();
+    } catch (error) {
+      if (context.mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
+
+  Future<void> _recordTrade(BuildContext context) async {
+    String kind = 'buy';
+    final quantity = TextEditingController();
+    final price = TextEditingController(
+      text: asset.lastPrice != null ? asset.lastPrice!.toStringAsFixed(2) : '',
+    );
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Trade ${asset.ticker ?? asset.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'buy', label: Text('Buy')),
+                  ButtonSegment(value: 'sell', label: Text('Sell')),
+                ],
+                selected: {kind},
+                onSelectionChanged: (s) => setDialogState(() => kind = s.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: quantity,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(hintText: 'Quantity'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: price,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(hintText: 'Price per unit'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Record'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != true || !context.mounted) return;
+    final q = double.tryParse(quantity.text.trim());
+    final p = double.tryParse(price.text.trim());
+    if (q == null || q <= 0 || p == null || p < 0) {
+      showAppToast(context, 'Enter a valid quantity and price', isError: true);
+      return;
+    }
+    try {
+      await repository.recordTrade(
+        asset.id,
+        kind: kind,
+        quantity: q,
+        price: p,
+        date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      );
+      if (context.mounted) context.read<ResourceListCubit<Asset>>().load();
+    } catch (error) {
+      if (context.mounted) showAppToast(context, '$error', isError: true);
+    }
+  }
+
+  Future<void> _openActions(BuildContext context) async {
+    if (!canEdit) return;
+    if (!asset.isMarketPriced) {
+      await _delete(context);
+      return;
+    }
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(asset.name),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('trade'),
+            child: const Text('Record a trade'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('refresh'),
+            child: const Text('Refresh price'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop('delete'),
+            child: const Text('Delete'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'trade':
+        await _recordTrade(context);
+      case 'refresh':
+        await _refreshPrice(context);
+      case 'delete':
+        await _delete(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = SecuroTheme.of(context);
@@ -110,7 +234,7 @@ class _AssetTile extends StatelessWidget {
 
     return Pressable(
       onTap: () => _edit(context),
-      onLongPress: () => _delete(context),
+      onLongPress: () => _openActions(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
