@@ -206,14 +206,17 @@ if os.getenv("AGENTS_ENABLED", "false").strip().lower() in ("1", "true", "yes", 
         from app.agents.api.knowledge import router as agents_knowledge_router
         from app.agents.api.mcp_tokens import router as agents_mcp_tokens_router
         from app.agents.api.scraper_findings import router as agents_findings_router
+        from app.agents.api.notifications import router as agents_notifications_router
 
         # Mount literal-prefix routers (conversations, connections,
-        # mcp-tokens) BEFORE the generic agents router so paths like
-        # /api/agents/connections don't get captured by /api/agents/{agent_id}.
+        # mcp-tokens, notifications) BEFORE the generic agents router so
+        # paths like /api/agents/connections don't get captured by
+        # /api/agents/{agent_id}.
         app.include_router(agents_info_router)
         app.include_router(agents_connections_router)
         app.include_router(agents_conversations_router)
         app.include_router(agents_mcp_tokens_router)
+        app.include_router(agents_notifications_router)
         app.include_router(agents_router)
         app.include_router(agents_chat_router)
         app.include_router(agents_knowledge_router)

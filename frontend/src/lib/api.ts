@@ -1597,6 +1597,17 @@ export interface KnowledgeDoc {
   updated_at: string
 }
 
+export interface AgentNotification {
+  id: string
+  agent_id: string
+  type: string
+  title: string
+  body: string
+  source_url: string | null
+  created_at: string
+  dismissed_at: string | null
+}
+
 export interface ScraperFinding {
   id: string
   agent_id: string
@@ -1689,6 +1700,16 @@ export const agents = {
     },
     dismiss: async (agentId: string, findingId: string): Promise<ScraperFinding> => {
       const { data } = await api.post(`/agents/${agentId}/findings/${findingId}/dismiss`)
+      return data
+    },
+  },
+  notifications: {
+    list: async (): Promise<{ items: AgentNotification[]; total: number }> => {
+      const { data } = await api.get('/agents/notifications')
+      return data
+    },
+    dismiss: async (notificationId: string): Promise<AgentNotification> => {
+      const { data } = await api.post(`/agents/notifications/${notificationId}/dismiss`)
       return data
     },
   },

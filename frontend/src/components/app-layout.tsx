@@ -58,6 +58,7 @@ import { PasskeyManagementDialog } from '@/components/passkey-management-dialog'
 import { CommandPalette } from '@/components/command-palette'
 import { useCommandPaletteHotkey } from '@/hooks/use-command-palette-hotkey'
 import { GlobalChatPanel } from '@/components/global-chat-panel'
+import { NotificationsBell } from '@/components/agents/notifications-bell'
 import { useFeatureFlags } from '@/hooks/use-feature-flags'
 import { Bot, Search, Sparkles } from 'lucide-react'
 import { setThemeBasedOnSystem } from '@/lib/theme-utils'
@@ -263,6 +264,7 @@ export function AppLayout() {
               <Bot size={18} />
             </button>
           )}
+          {agentsEnabled && <NotificationsBell triggerSize={18} />}
           <UserMenu
             userInitial={userInitial}
             logout={logout}
@@ -332,6 +334,7 @@ export function AppLayout() {
                   <Bot size={16} />
                 </button>
               )}
+              {agentsEnabled && <NotificationsBell triggerSize={16} />}
               <button
                 onClick={toggleTheme}
                 className="text-sidebar-muted hover:text-sidebar-foreground transition-colors p-1 rounded-md hover:bg-sidebar-accent"

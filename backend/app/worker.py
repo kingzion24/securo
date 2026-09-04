@@ -53,6 +53,14 @@ celery_app.conf.beat_schedule = {
         # stamped with the 1:1 fallback (or left NULL) once real rates land.
         "schedule": 60 * 60 * 12,
     },
+    "scan-market-opportunities-daily": {
+        "task": "app.agents.tasks.market_opportunity.scan_market_opportunities",
+        # Once a day, after a scrape cycle or two has had a chance to land
+        # new findings. The task itself no-ops when AGENTS_ENABLED is off
+        # or when there's nothing new to look at, so this costs idle users
+        # nothing beyond a cheap DB query.
+        "schedule": 60 * 60 * 24,
+    },
 }
 
 celery_app.conf.include = [
@@ -63,4 +71,5 @@ celery_app.conf.include = [
     # Optional agents module — registering the import is harmless when
     # AGENTS_ENABLED=false (the task just won't be dispatched).
     "app.agents.tasks.ingest",
+    "app.agents.tasks.market_opportunity",
 ]

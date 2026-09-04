@@ -2,6 +2,7 @@ from app.agents.models.agent import Agent, AgentTool
 from app.agents.models.connection import LlmConnection
 from app.agents.models.conversation import Conversation, Message
 from app.agents.models.knowledge import KnowledgeDoc, KnowledgeChunk
+from app.agents.models.notification import AgentNotification
 from app.agents.models.scraper_finding import ScraperFinding
 from app.agents.models.usage import LlmUsage
 
@@ -20,6 +21,7 @@ __all__ = [
     "Message",
     "KnowledgeDoc",
     "KnowledgeChunk",
+    "AgentNotification",
     "ScraperFinding",
     "LlmUsage",
 ]

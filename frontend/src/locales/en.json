@@ -1928,6 +1928,12 @@
       "count": "{{count}} unread",
       "dismiss": "Dismiss"
     },
+    "notifications": {
+      "title": "Notifications",
+      "count": "{{count}} new",
+      "empty": "Nothing new right now.",
+      "dismiss": "Dismiss"
+    },
     "knowledge": {
       "title": "Knowledge base",
       "subtitle": "PDF, MD, or TXT. Pinned docs always go into context.",
