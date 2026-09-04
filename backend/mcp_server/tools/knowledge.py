@@ -17,7 +17,10 @@ from mcp_server.registry import tool
         "(PDF, MD, TXT). Returns the top matching text chunks with their "
         "similarity score. Use this when the user asks about something the "
         "agent has been given knowledge about (tax laws, accounting rules, "
-        "personal notes, etc.)."
+        "personal notes, etc.). Chunks from docs the user pinned are always "
+        "included (marked `pinned: true`), even if their score is below "
+        "`similarity_threshold` — pinning means the user marked that doc as "
+        "authoritative and it should never be excluded for wording reasons."
     ),
     parameters={
         "type": "object",

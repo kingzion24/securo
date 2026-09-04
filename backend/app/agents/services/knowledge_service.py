@@ -162,11 +162,22 @@ async def similarity_search(
     query_embedding: list[float],
     top_n: int = 6,
     similarity_threshold: float = 0.0,
+    max_pinned: int = 8,
 ) -> list[dict[str, Any]]:
     """Run cosine-distance ANN search. Lower distance = closer match.
-    Returns rows with `score` = 1 - distance (so higher = better)."""
+    Returns rows with `score` = 1 - distance (so higher = better).
+
+    Chunks from pinned docs are always included, regardless of score or
+    `similarity_threshold` — pinning is how a user marks a doc as
+    authoritative (house rules, a tax reference, etc.) and it must not
+    get silently dropped just because the query's wording doesn't embed
+    close to it. They still carry a real `score` (for ordering/display),
+    it's just never used to exclude them. Remaining `top_n` slots are
+    filled with the best-scoring non-pinned chunks as before.
+    """
     distance = KnowledgeChunk.embedding.cosine_distance(query_embedding)
-    q = (
+
+    pinned_q = (
         select(
             KnowledgeChunk.id,
             KnowledgeChunk.doc_id,
@@ -174,43 +185,59 @@ async def similarity_search(
             KnowledgeChunk.content,
             distance.label("distance"),
         )
-        .where(KnowledgeChunk.agent_id == agent_id)
+        .join(KnowledgeDoc, KnowledgeDoc.id == KnowledgeChunk.doc_id)
+        .where(KnowledgeChunk.agent_id == agent_id, KnowledgeDoc.pinned.is_(True))
         .order_by(distance.asc())
-        .limit(int(top_n) * 3)  # over-fetch then threshold-filter
+        .limit(int(max_pinned))
     )
-    rows = (await session.execute(q)).all()
-    out: list[dict[str, Any]] = []
-    for r in rows:
-        score = 1.0 - float(r.distance)
-        if score < similarity_threshold:
-            continue
-        out.append({
+    pinned_rows = (await session.execute(pinned_q)).all()
+    pinned_ids = {r.id for r in pinned_rows}
+    out: list[dict[str, Any]] = [
+        {
             "id": str(r.id),
             "doc_id": str(r.doc_id),
             "ordinal": int(r.ordinal),
             "content": r.content,
-            "score": score,
-        })
-        if len(out) >= top_n:
-            break
-    return out
-
-
-async def list_pinned_chunks(
-    session: AsyncSession, *, agent_id: uuid.UUID, max_chunks: int = 20
-) -> list[dict[str, Any]]:
-    q = (
-        select(KnowledgeChunk.id, KnowledgeChunk.doc_id, KnowledgeChunk.ordinal, KnowledgeChunk.content)
-        .join(KnowledgeDoc, KnowledgeDoc.id == KnowledgeChunk.doc_id)
-        .where(KnowledgeChunk.agent_id == agent_id, KnowledgeDoc.pinned.is_(True))
-        .order_by(KnowledgeChunk.doc_id, KnowledgeChunk.ordinal)
-        .limit(max_chunks)
-    )
-    rows = (await session.execute(q)).all()
-    return [
-        {"id": str(r.id), "doc_id": str(r.doc_id), "ordinal": int(r.ordinal), "content": r.content}
-        for r in rows
+            "score": 1.0 - float(r.distance),
+            "pinned": True,
+        }
+        for r in pinned_rows
     ]
+
+    remaining = max(int(top_n) - len(out), 0)
+    if remaining:
+        q = (
+            select(
+                KnowledgeChunk.id,
+                KnowledgeChunk.doc_id,
+                KnowledgeChunk.ordinal,
+                KnowledgeChunk.content,
+                distance.label("distance"),
+            )
+            .where(KnowledgeChunk.agent_id == agent_id)
+            .order_by(distance.asc())
+            .limit(remaining * 3)  # over-fetch then threshold-filter
+        )
+        rows = (await session.execute(q)).all()
+        added = 0
+        for r in rows:
+            if r.id in pinned_ids:
+                continue  # already included above, unconditionally
+            score = 1.0 - float(r.distance)
+            if score < similarity_threshold:
+                continue
+            out.append({
+                "id": str(r.id),
+                "doc_id": str(r.doc_id),
+                "ordinal": int(r.ordinal),
+                "content": r.content,
+                "score": score,
+                "pinned": False,
+            })
+            added += 1
+            if added >= remaining:
+                break
+    return out
 
 
 def hash_payload(payload: bytes) -> str:
