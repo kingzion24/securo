@@ -636,11 +636,45 @@ _MPESA_FEE_BREAKDOWN_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A second, structurally different M-Pesa template for incoming TIPS
+# (bank-to-mobile) transfers: "<ref> confirmed. You have received a payment
+# of Tsh<amount> from <source> on <date> at <time>. New M-Pesa balance is
+# Tsh<balance>." The verb phrase sits BEFORE the amount here (unlike the
+# plain "TshX received from Y" template above), and <source> is a bank/
+# short-code label ("922780 - TIPS-TCB"), not a person. Always a credit.
+_MPESA_TIPS_RE = re.compile(
+    r"^(?P<ref>[A-Z0-9]{8,12})\s+confirmed\.\s+"
+    r"You have received a payment of\s+Tsh(?P<amount>[\d,]+\.\d{2})\s+"
+    r"from\s+(?P<source>.+?)"
+    r"\s+on\s+(?P<day>\d{1,2})/(?P<month>\d{1,2})/(?P<year>\d{2,4})"
+    r"\s+at\s+(?P<time>\d{1,2}:\d{2}\s*[ap]m)"
+    r".*?"
+    r"(?:New M-Pesa balance is|Balance is)\s+Tsh(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _tz_parse_mpesa_tips(text: str) -> list[TransactionImport]:
+    m = _MPESA_TIPS_RE.search(text)
+    if not m:
+        return []
+    amount = _tz_normalize_amount(m["amount"])
+    year = m["year"] if len(m["year"]) == 4 else f"20{m['year']}"
+    txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{year}", "%d/%m/%Y").date()
+    return [TransactionImport(
+        description=f"M-Pesa: received payment from {m['source'].strip()}",
+        amount=amount,
+        date=txn_date,
+        type="credit",
+        currency="TZS",
+        external_id=m["ref"],
+    )]
+
 
 def _tz_parse_mpesa_sms(text: str) -> list[TransactionImport]:
     m = _MPESA_SMS_RE.search(text)
     if not m:
-        return []
+        return _tz_parse_mpesa_tips(text)
     amount = _tz_normalize_amount(m["amount"])
     year = m["year"] if len(m["year"]) == 4 else f"20{m['year']}"
     txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{year}", "%d/%m/%Y").date()
@@ -725,7 +759,7 @@ def _tz_parse_selcom_receipt(text: str) -> list[TransactionImport]:
 # with no fee/balance, then an "Imepokelewa" settlement notice with the fee
 # breakdown. Only the settlement version is usable; see _tz_dedup_selcom.
 _SELCOM_TRANSFER_RE = re.compile(
-    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+(?:Imethibitishwa|Imepokelewa)\.\s+"
+    r"^(?P<ref>[0-9]{3,4}[A-Z][0-9A-Z]{3,8})\s+(?:Imethibitishwa|Imepokelewa)\.\s+"
     r"Umetuma\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<payee>.+?)"
     r"(?:\s+-\s+(?P<service>[^(]+?))?\s*\((?P<phone>\d+)\)\s+tarehe\s+"
     r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
@@ -739,17 +773,46 @@ _SELCOM_TRANSFER_SETTLED_RE = re.compile(
     re.IGNORECASE,
 )
 _SELCOM_CARD_RE = re.compile(
-    r"^(?P<ref>[0-9]{3,4}P[0-9A-Z]{3,8})\s+Imethibitishwa\.\s+"
+    r"^(?P<ref>[0-9]{3,4}[A-Z][0-9A-Z]{3,8})\s+Imethibitishwa\.\s+"
     r"Umelipa\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+(?P<merchant>.+?)\s+"
     r"kwa kutumia kadi yako inayoishia\s+(?P<last4>\d+)\s+tarehe\s+"
     r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
     r"Salio jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
     re.IGNORECASE | re.DOTALL,
 )
+# Incoming transfer to a Selcom account (money received rather than sent/
+# paid) — third Selcom Swahili template: "<ref> Imethibitishwa. Umepokea
+# TZS <amount> kutoka kwa <sender> - <service> (<phone>) tarehe <date>
+# <time>. Salio lako jipya ni TZS <balance>."
+_SELCOM_RECEIVE_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}[A-Z][0-9A-Z]{3,8})\s+Imethibitishwa\.\s+"
+    r"Umepokea\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kutoka kwa\s+(?P<payer>.+?)"
+    r"(?:\s+-\s+(?P<service>[^(]+?))?\s*\((?P<phone>\d+)\)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"Salio lako jipya ni\s+TZS\s+(?P<balance>[\d,]+\.\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _tz_parse_selcom_sw(text: str) -> tuple[str, bool, list[TransactionImport]] | None:
     """Return (ref, has_settlement_data, transactions) for a Selcom Swahili SMS, or None."""
+    m = _SELCOM_RECEIVE_RE.search(text)
+    if m:
+        txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{m['date']}", "%d/%m/%Y").date()
+        amount = _tz_normalize_amount(m["amount"])
+        payer = m["payer"].strip()
+        if m["service"]:
+            payer = f"{payer} - {m['service'].strip()}"
+        txn = TransactionImport(
+            description=f"Selcom: received from {payer}",
+            amount=amount,
+            date=txn_date,
+            type="credit",
+            currency="TZS",
+            external_id=m["ref"],
+        )
+        return (m["ref"], True, [txn])
+
     m = _SELCOM_CARD_RE.search(text)
     if m:
         txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{m['date']}", "%d/%m/%Y").date()
@@ -861,7 +924,7 @@ def _tz_parse_tcb_sms(text: str, fallback_date) -> tuple[list[TransactionImport]
 
 
 _TCB_KUMBUKUMBU_RE = re.compile(
-    r"Kumbukumbu namba:\s*(?P<ref>\S+),\s*TZS\s+(?P<amount>[\d,]+(?:\.\d{2})?)\s*/=\s*"
+    r"^Kumbukumbu namba:\s*(?P<ref>\S+),\s*TZS\s+(?P<amount>[\d,]+(?:\.\d{2})?)\s*/=\s*"
     r"kutoka\s+Akaunti:\s*(?P<from_acct>\S+)\s+zimetumwa\s+kwenda,\s*"
     r"Akaunti:\s*(?P<to_acct>\S+)\s*-\s*(?P<to_label>[^,]+),\s*"
     r"kwa njia ya:\s*(?P<method>\S+)\s*\((?P<method_ref>[^)]+)\)"
@@ -901,8 +964,16 @@ def _tz_parse_tcb_kumbukumbu(text: str, fallback_date) -> tuple[list[Transaction
 # next message's ref with no separator at all (e.g. "...0800 784
 # 8880821P44QH Imepokelewa..."), and \b can't fire between two digits.
 _MSG_START_RE = re.compile(
-    r"(?=[0-9]{3,4}P[0-9A-Z]{3,8}\s+(?:Imethibitishwa|Imepokelewa)\b)"
+    r"(?=[0-9]{3,4}[A-Z][0-9A-Z]{3,8}\s+(?:Imethibitishwa|Imepokelewa)\b)"
     r"|(?=[A-Z0-9]{8,12}\s+Confirmed\b)"
+    # TCB messages have no ref-prefixed header — a plain debit/credit alert
+    # starts "TZS <amount> Zime.../Ume...", the transfer-receipt variant
+    # starts "Kumbukumbu namba:". Without these, a TCB message glued to a
+    # neighbour (no blank line) gets silently absorbed into whichever
+    # message it's stuck to instead of being split out on its own.
+    r"|(?=TZS\s+[\d,]+(?:\.\d{2})?\s+(?:Zime\w+|Ume\w+|Yame\w+))"
+    r"|(?=Kumbukumbu namba:)",
+    re.IGNORECASE,
 )
 
 

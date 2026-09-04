@@ -1059,7 +1059,15 @@ async def get_transfer_candidates(
         Decimal(str(anchor.amount_primary)) if anchor.amount_primary is not None else None
     )
 
-    def score(tx: Transaction) -> tuple[int, Decimal]:
+    anchor_desc = (anchor.description or "").lower()
+    # anchor came from get_transaction(), which doesn't eager-load .account —
+    # a bare attribute access would lazy-load outside the greenlet context
+    # and raise MissingGreenlet. Fetch the name directly instead.
+    anchor_account_name = (
+        (await session.scalar(select(Account.name).where(Account.id == anchor.account_id))) or ""
+    ).lower()
+
+    def score(tx: Transaction) -> tuple[int, Decimal, int]:
         date_diff = abs((tx.date - anchor.date).days)
         if anchor_amount_primary is not None and tx.amount_primary is not None:
             amount_diff = abs(
@@ -1071,7 +1079,19 @@ async def get_transfer_candidates(
                 Decimal(str(tx.amount)).copy_abs()
                 - Decimal(str(anchor.amount)).copy_abs()
             )
-        return (date_diff, amount_diff)
+        # Tertiary tiebreaker for same-day, same-amount coincidences (e.g. a
+        # gift landing on the same day as an unrelated bank transfer of the
+        # same round amount): prefer a candidate whose own description
+        # mentions the anchor's account, or vice versa — real transfer
+        # notifications commonly name the other side ("TIPS-TCB", "MPESA
+        # (...)"), an unrelated transaction essentially never does.
+        tx_desc = (tx.description or "").lower()
+        tx_account_name = (tx.account.name or "").lower() if tx.account else ""
+        cross_referenced = (
+            (anchor_account_name and anchor_account_name in tx_desc)
+            or (tx_account_name and tx_account_name in anchor_desc)
+        )
+        return (date_diff, amount_diff, 0 if cross_referenced else 1)
 
     candidates.sort(key=score)
     candidates = candidates[:limit]
