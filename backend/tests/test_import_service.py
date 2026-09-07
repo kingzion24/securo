@@ -16,6 +16,7 @@ from app.services.import_service import (
     parse_ofx,
     parse_qif,
     parse_camt,
+    parse_tz_messages,
     import_transactions,
 )
 
@@ -2433,3 +2434,73 @@ async def test_import_tolerates_duplicate_external_id_rows(
         )
     )).scalars().all()
     assert len(remaining) == 2
+
+
+class TestParseTzMessagesMpesa:
+    """M-Pesa SMS templates beyond the original 'TshX <verb> Y' shape."""
+
+    def test_plain_received_from_person_no_payment_of(self):
+        # Person-to-person credit: "You have received TshX from Y" — no
+        # "a payment of" and no space between "Confirmed." and "You".
+        text = (
+            "DI4CN2I3DR Confirmed.You have received Tsh7,000.00 from "
+            "255743956289 - VICTORIA CHARLES KIFUNTA  on 4/9/26 at 8:24 pm "
+            "New M-Pesa balance is Tsh92,534.60."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 1
+        txn = txns[0]
+        assert txn.type == "credit"
+        assert txn.amount == Decimal("7000.00")
+        assert txn.date == date(2026, 9, 4)
+        assert txn.external_id == "DI4CN2I3DR"
+
+    def test_tips_credit_with_payment_of_still_works(self):
+        # Original TIPS template ("a payment of ...") must keep working.
+        text = (
+            "DI4222J3UT confirmed. You have received a payment of "
+            "Tsh16,000.00 from 922746 - TIPS-CRDB on 4/9/26 at 8:26 pm. "
+            "New M-Pesa balance is Tsh115,534.60"
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 1
+        assert txns[0].amount == Decimal("16000.00")
+        assert txns[0].type == "credit"
+
+    def test_standalone_p2p_send_notice_kept_as_debit(self):
+        # "<Name> has received TshX on <ISO date>" with no fee/balance line
+        # and no other message sharing its ref: a real, standalone debit.
+        text = (
+            "DI4222IUAQ Confirmed. AGNESS LUCAS CHILUMBA has received "
+            "Tsh 42000 on 2026-09-04 10:33:54."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 1
+        txn = txns[0]
+        assert txn.type == "debit"
+        assert txn.amount == Decimal("42000")
+        assert txn.date == date(2026, 9, 4)
+        assert txn.external_id == "DI4222IUAQ"
+
+    def test_p2p_notice_deduped_against_matching_tips_selcom_ref(self):
+        # The same "<Name> has received..." template also shows up as a
+        # redundant echo of a TIPS merchant payment sharing its ref — that
+        # ref already has a fuller record (with fee + balance), so the
+        # echo must not become a second, duplicate transaction.
+        text = (
+            "DI4222IX27 Confirmed. LOBU RESTAURANT has received Tsh 72000 "
+            "on 2026-09-04 20:29:58.\n\n"
+            "DI4222IX27 Confirmed. Tsh72,000.00 sent to TIPS-SELCOM for "
+            "account 61009723 on 4/9/26 at 8:29 pm Total fee Tsh2,500.00 "
+            "(M-Pesa fee Tsh2,500.00 + Government Levy Tsh0.00). "
+            "Balance is Tsh41,034.60."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        refs = [t.external_id for t in txns]
+        assert refs.count("DI4222IX27") == 1
+        assert "DI4222IX27-fee" in refs
+        assert len(txns) == 2

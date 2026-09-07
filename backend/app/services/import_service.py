@@ -637,14 +637,19 @@ _MPESA_FEE_BREAKDOWN_RE = re.compile(
 )
 
 # A second, structurally different M-Pesa template for incoming TIPS
-# (bank-to-mobile) transfers: "<ref> confirmed. You have received a payment
-# of Tsh<amount> from <source> on <date> at <time>. New M-Pesa balance is
+# (bank-to-mobile) transfers: "<ref> confirmed. You have received [a payment
+# of] Tsh<amount> from <source> on <date> at <time>. New M-Pesa balance is
 # Tsh<balance>." The verb phrase sits BEFORE the amount here (unlike the
-# plain "TshX received from Y" template above), and <source> is a bank/
-# short-code label ("922780 - TIPS-TCB"), not a person. Always a credit.
+# plain "TshX received from Y" template above). "a payment of" is optional —
+# person-to-person credits ("...received Tsh7,000.00 from 255743956289 -
+# VICTORIA...") drop it, while TIPS bank credits ("...received a payment of
+# Tsh16,000.00 from 922746 - TIPS-CRDB...") include it; <source> can be
+# either a person or a bank/short-code label. Always a credit. The period
+# after "confirmed" is also not reliably followed by a space in the wild
+# ("Confirmed.You have received..."), hence \s* rather than \s+ there.
 _MPESA_TIPS_RE = re.compile(
-    r"^(?P<ref>[A-Z0-9]{8,12})\s+confirmed\.\s+"
-    r"You have received a payment of\s+Tsh(?P<amount>[\d,]+\.\d{2})\s+"
+    r"^(?P<ref>[A-Z0-9]{8,12})\s+confirmed\.\s*"
+    r"You have received(?:\s+a payment of)?\s+Tsh(?P<amount>[\d,]+\.\d{2})\s+"
     r"from\s+(?P<source>.+?)"
     r"\s+on\s+(?P<day>\d{1,2})/(?P<month>\d{1,2})/(?P<year>\d{2,4})"
     r"\s+at\s+(?P<time>\d{1,2}:\d{2}\s*[ap]m)"
@@ -719,6 +724,45 @@ def _tz_parse_mpesa_sms(text: str) -> list[TransactionImport]:
                 external_id=f"{m['ref']}-fee",
             ))
     return rows
+
+
+# A third M-Pesa template: the sender's own confirmation for a plain
+# person-to-person send, "<ref> Confirmed. <Name> has received Tsh<amount>
+# on <YYYY-MM-DD> <HH:MM:SS>." — no verb between ref and amount, no fee/
+# balance line, date is ISO rather than d/m/y, and the amount often has no
+# decimals ("Tsh 72000"). Always a debit from the account holder's side.
+#
+# The same template also shows up as a second, redundant notice for a TIPS
+# merchant payment that's already captured in full (with fee + balance) by
+# _MPESA_SMS_RE under the same ref — e.g. paying "LOBU RESTAURANT" via
+# TIPS-SELCOM produces both a "72,000 sent to TIPS-SELCOM ... Balance is
+# ..." message and a "LOBU RESTAURANT has received Tsh72000 ..." echo.
+# Callers must dedupe by ref against the other parsers' output before
+# treating a match here as a standalone transaction.
+_MPESA_RECEIVED_NOTICE_RE = re.compile(
+    r"^(?P<ref>[A-Z0-9]{8,12})\s+Confirmed\.\s*"
+    r"(?P<payee>.+?)\s+has received\s+Tsh\s*(?P<amount>[\d,]+(?:\.\d{2})?)\s+"
+    r"on\s+(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _tz_parse_mpesa_received_notice(text: str) -> tuple[str, TransactionImport] | None:
+    m = _MPESA_RECEIVED_NOTICE_RE.search(text)
+    if not m:
+        return None
+    amount = _tz_normalize_amount(m["amount"])
+    txn_date = datetime(int(m["year"]), int(m["month"]), int(m["day"])).date()
+    payee = m["payee"].strip()
+    txn = TransactionImport(
+        description=f"M-Pesa: sent to {payee}",
+        amount=amount,
+        date=txn_date,
+        type="debit",
+        currency="TZS",
+        external_id=m["ref"],
+    )
+    return (m["ref"], txn)
 
 
 _SELCOM_HEADER_RE = re.compile(r"^Selcom Pay\s*$", re.IGNORECASE | re.MULTILINE)
@@ -1013,6 +1057,7 @@ def parse_tz_messages(text: str) -> tuple[list[TransactionImport], list[str]]:
         blocks.extend(_tz_split_concatenated(b))
 
     selcom_by_ref: dict[str, tuple[bool, list[TransactionImport]]] = {}
+    mpesa_notice_by_ref: dict[str, TransactionImport] = {}
     exact_seen: set[str] = set()
     transactions: list[TransactionImport] = []
     warnings: list[str] = []
@@ -1054,10 +1099,24 @@ def parse_tz_messages(text: str) -> tuple[list[TransactionImport], list[str]]:
             warnings.extend(tcb_warns)
             continue
 
+        mpesa_notice = _tz_parse_mpesa_received_notice(block)
+        if mpesa_notice:
+            ref, txn = mpesa_notice
+            mpesa_notice_by_ref.setdefault(ref, txn)
+            continue
+
         unparsed += 1
 
     for _has_data, txns in selcom_by_ref.values():
         transactions.extend(txns)
+
+    # A "<Name> has received..." notice is only a real standalone
+    # transaction when no other message with the same ref already produced
+    # a fuller record (see _MPESA_RECEIVED_NOTICE_RE docstring above).
+    mpesa_refs_seen = {t.external_id.removesuffix("-fee") for t in transactions if t.external_id}
+    for ref, txn in mpesa_notice_by_ref.items():
+        if ref not in mpesa_refs_seen:
+            transactions.append(txn)
 
     if unparsed:
         warnings.append(f"{unparsed} pasted message(s) did not match any known format and were skipped.")
