@@ -2504,3 +2504,67 @@ class TestParseTzMessagesMpesa:
         assert refs.count("DI4222IX27") == 1
         assert "DI4222IX27-fee" in refs
         assert len(txns) == 2
+
+
+class TestParseTzMessagesSelcomLipa:
+    """Selcom Swahili 'LIPA'/paybill-style payments: 'kwa <payee> - <account>'
+    (no phone number), arriving as an Imepokelewa settlement message (with
+    fee + balance) and an Imethibitishwa confirmation message (with a TIPS
+    reference instead)."""
+
+    def test_settled_pair_yields_debit_plus_fee(self):
+        text = (
+            "0917SD1SN Imepokelewa. Umelipa TZS 99,000.00 kwa LIPA NETPOA LIMITED "
+            "- 50871075 tarehe 2026-09-17 13:54:13. Ada Jumla TZS 950.00 "
+            "(Ada 732, VAT 145, Ex Duty 73). Salio jipya ni TZS 316,924.15. "
+            "Msaada 0800 714 888 / 0800 784 888\n\n"
+            "0917SD1SN Imethibitishwa. Umetuma TZS 99,000.00 kwa LIPA NETPOA LIMITED "
+            "- 50871075 tarehe 2026-09-17 13:54:13. TIPS kumbukumbu DIHNO3NPTH.  "
+            "Msaada 0800 714 888/0800 784 888"
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 2
+        main = next(t for t in txns if t.external_id == "0917SD1SN")
+        fee = next(t for t in txns if t.external_id == "0917SD1SN-fee")
+        assert main.type == "debit"
+        assert main.amount == Decimal("99000.00")
+        assert main.date == date(2026, 9, 17)
+        assert "LIPA NETPOA LIMITED" in main.description
+        assert "50871075" in main.description
+        assert fee.type == "debit"
+        assert fee.amount == Decimal("950.00")
+
+    def test_payee_without_lipa_prefix_still_parses(self):
+        # "LIPA" isn't a fixed marker — plenty of billers just show a plain
+        # person's name before the "- <account>" suffix.
+        text = (
+            "0918SJ5SW Imepokelewa. Umelipa TZS 20,000.00 kwa EMMANUEL CHARLES CYPRIAN "
+            "- 44332418 tarehe 2026-09-18 17:49:39. Ada Jumla TZS 400.00 "
+            "(Ada 308, VAT 61, Ex Duty 31). Salio jipya ni TZS 296,524.15.\n\n"
+            "0918SJ5SW Imethibitishwa. Umetuma TZS 20,000.00 kwa EMMANUEL CHARLES CYPRIAN "
+            "- 44332418 tarehe 2026-09-18 17:49:39. TIPS kumbukumbu 26206308957538."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        refs = [t.external_id for t in txns]
+        assert refs.count("0918SJ5SW") == 1
+        assert "0918SJ5SW-fee" in refs
+        main = next(t for t in txns if t.external_id == "0918SJ5SW")
+        assert main.amount == Decimal("20000.00")
+        assert "EMMANUEL CHARLES CYPRIAN" in main.description
+
+    def test_confirmation_only_without_settlement_falls_back_no_fee(self):
+        # If only the Imethibitishwa/TIPS-kumbukumbu message is pasted (no
+        # matching settlement message), it must still produce a standalone
+        # debit with no fee row.
+        text = (
+            "0919SLLXU Imethibitishwa. Umetuma TZS 41,000.00 kwa LIPA HASSANI HOSSENI "
+            "KAGOMA - 58765342 tarehe 2026-09-19 10:45:46. TIPS kumbukumbu DIJNO3P7JL."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 1
+        assert txns[0].type == "debit"
+        assert txns[0].amount == Decimal("41000.00")
+        assert txns[0].external_id == "0919SLLXU"

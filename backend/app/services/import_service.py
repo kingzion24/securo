@@ -838,6 +838,27 @@ _SELCOM_RECEIVE_RE = re.compile(
 )
 
 
+# A fourth Selcom Swahili template: paying a billed merchant/person by
+# account number rather than by phone number — LIPA/paybill-style payments
+# ("kwa LIPA NETPOA LIMITED - 50871075" or "kwa EMMANUEL CHARLES CYPRIAN -
+# 44332418"; "LIPA" here is sometimes literally part of the registered
+# biller name, not a fixed marker, so it isn't stripped). Like the
+# phone-number transfer above, this arrives as two messages sharing the
+# same leading ref: an "Imepokelewa" message with the verb "Umelipa" and
+# the fee/balance breakdown, and an "Imethibitishwa" message with the verb
+# "Umetuma" and a "TIPS kumbukumbu <ref>" trailer instead of a balance.
+# Only the settled ("Imepokelewa") version carries the fee — prefer it the
+# same way the phone-number transfer does.
+_SELCOM_LIPA_RE = re.compile(
+    r"^(?P<ref>[0-9]{3,4}[A-Z][0-9A-Z]{3,8})\s+(?:Imepokelewa|Imethibitishwa)\.\s+"
+    r"(?:Umelipa|Umetuma)\s+TZS\s+(?P<amount>[\d,]+\.\d{2})\s+kwa\s+"
+    r"(?P<payee>.+?)\s+-\s+(?P<account>\d+)\s+tarehe\s+"
+    r"(?P<date>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\.\s*"
+    r"(?P<tail>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
 def _tz_parse_selcom_sw(text: str) -> tuple[str, bool, list[TransactionImport]] | None:
     """Return (ref, has_settlement_data, transactions) for a Selcom Swahili SMS, or None."""
     m = _SELCOM_RECEIVE_RE.search(text)
@@ -892,6 +913,43 @@ def _tz_parse_selcom_sw(text: str) -> tuple[str, bool, list[TransactionImport]] 
 
         txns = [TransactionImport(
             description=f"Selcom transfer: {payee}",
+            amount=amount,
+            date=txn_date,
+            type="debit",
+            currency="TZS",
+            external_id=m["ref"],
+        )]
+        fee = _tz_normalize_amount(settled["fee"])
+        if fee > 0:
+            txns.append(TransactionImport(
+                description="Selcom fee (Ada/VAT/Ex Duty)",
+                amount=fee,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=f"{m['ref']}-fee",
+            ))
+        return (m["ref"], True, txns)
+
+    m = _SELCOM_LIPA_RE.search(text)
+    if m:
+        txn_date = datetime.strptime(f"{m['day']}/{m['month']}/{m['date']}", "%d/%m/%Y").date()
+        amount = _tz_normalize_amount(m["amount"])
+        payee = f"{m['payee'].strip()} ({m['account']})"
+        settled = _SELCOM_TRANSFER_SETTLED_RE.search(m["tail"] or "")
+        if not settled:
+            txn = TransactionImport(
+                description=f"Selcom: paid {payee}",
+                amount=amount,
+                date=txn_date,
+                type="debit",
+                currency="TZS",
+                external_id=m["ref"],
+            )
+            return (m["ref"], False, [txn])
+
+        txns = [TransactionImport(
+            description=f"Selcom: paid {payee}",
             amount=amount,
             date=txn_date,
             type="debit",
