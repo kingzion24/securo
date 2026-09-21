@@ -598,7 +598,6 @@ function UserMenu({
   isAdmin?: boolean
   agentsEnabled?: boolean
 }) {
-  const { user } = useAuth()
   const { t, i18n } = useTranslation()
   const nav = useNavigate()
   const { user, updateUser } = useAuth()
