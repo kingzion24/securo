@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/auth-context'
@@ -13,7 +13,13 @@ import { isServerUnreachable } from '@/lib/auth-errors'
 import { resolveLocalAuthEnabled } from '@/lib/auth-config-utils'
 import { useTheme } from 'next-themes'
 import { setThemeBasedOnSystem } from '@/lib/theme-utils'
-import { isPasskeySupported, passkeyFailure, startPasskeyAuthentication } from '@/lib/webauthn'
+import {
+  isConditionalPasskeySupported,
+  isPasskeySupported,
+  passkeyFailure,
+  startConditionalPasskeyAuthentication,
+  startPasskeyAuthentication,
+} from '@/lib/webauthn'
 import type { PasskeyFailure } from '@/lib/webauthn'
 
 const PASSKEY_LOGIN_FAILURE_KEYS: Record<PasskeyFailure, string> = {
@@ -43,7 +49,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
-  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeySupported] = useState(isPasskeySupported)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
   const [oidcConfigFailed, setOidcConfigFailed] = useState(false)
@@ -54,9 +60,16 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('')
   const [available2faMethods, setAvailable2faMethods] = useState<Array<'totp' | 'passkey'>>(['totp'])
   const [selected2faMethod, setSelected2faMethod] = useState<'totp' | 'passkey'>('totp')
+  const conditionalPasskeyAbortRef = useRef<AbortController | null>(null)
+
+  const localAuthEnabled = resolveLocalAuthEnabled(oidcConfig, oidcConfigFailed)
+  const oidcEnabled = oidcConfig?.enabled === true
+  const authConfigLoading = oidcConfig === null && !oidcConfigFailed
+  const noAuthMethodConfigured = oidcConfig !== null && !localAuthEnabled && !oidcEnabled
+  const showPasskeyLogin = localAuthEnabled && passkeySupported
+  const showAuthDivider = localAuthEnabled && (showPasskeyLogin || oidcEnabled)
 
   useEffect(() => {
-    setPasskeySupported(isPasskeySupported())
     if (token) {
       navigate('/', { replace: true })
       return
@@ -94,8 +107,72 @@ export default function LoginPage() {
     }
   }, [navigate, oidcConfig, oidcConfigFailed, token])
 
+  useEffect(() => {
+    if (
+      token ||
+      requires2fa ||
+      authConfigLoading ||
+      !localAuthEnabled ||
+      !passkeySupported ||
+      isLoading ||
+      isPasskeyLoading
+    ) return
+
+    const abortController = new AbortController()
+    conditionalPasskeyAbortRef.current?.abort()
+    conditionalPasskeyAbortRef.current = abortController
+
+    const authenticateConditionally = async () => {
+      if (!await isConditionalPasskeySupported() || abortController.signal.aborted) return
+
+      try {
+        // An account-less request lets the browser discover eligible passkeys
+        // and offer them alongside saved usernames in the email field.
+        const options = await authApi.passkeyAuthenticationOptions()
+        if (abortController.signal.aborted) return
+
+        const credential = await startConditionalPasskeyAuthentication(
+          options.options,
+          abortController.signal,
+        )
+        // A challenge is one-shot server-side: verifying one the user already
+        // walked away from burns it and answers a ceremony nobody is watching.
+        if (abortController.signal.aborted) return
+
+        const result = await authApi.verifyPasskeyAuthentication(options.challenge_id, credential)
+        if (abortController.signal.aborted) return
+
+        loginWithToken(result.access_token)
+        navigate('/')
+      } catch {
+        // Conditional UI is an enhancement. Unsupported providers, dismissal,
+        // expiry, and cancellation leave the normal login methods untouched.
+      }
+    }
+
+    void authenticateConditionally()
+
+    return () => {
+      abortController.abort()
+      if (conditionalPasskeyAbortRef.current === abortController) {
+        conditionalPasskeyAbortRef.current = null
+      }
+    }
+  }, [
+    authConfigLoading,
+    isLoading,
+    isPasskeyLoading,
+    localAuthEnabled,
+    loginWithToken,
+    navigate,
+    passkeySupported,
+    requires2fa,
+    token,
+  ])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    conditionalPasskeyAbortRef.current?.abort()
     setError('')
     setIsLoading(true)
     try {
@@ -124,10 +201,12 @@ export default function LoginPage() {
   }
 
   const handleOIDCLogin = () => {
+    conditionalPasskeyAbortRef.current?.abort()
     window.location.href = '/api/auth/oidc/login'
   }
 
   const handlePasskeyLogin = async () => {
+    conditionalPasskeyAbortRef.current?.abort()
     setError('')
     setIsPasskeyLoading(true)
     try {
@@ -207,13 +286,6 @@ export default function LoginPage() {
       setIsPasskeyLoading(false)
     }
   }
-
-  const localAuthEnabled = resolveLocalAuthEnabled(oidcConfig, oidcConfigFailed)
-  const oidcEnabled = oidcConfig?.enabled === true
-  const authConfigLoading = oidcConfig === null && !oidcConfigFailed
-  const noAuthMethodConfigured = oidcConfig !== null && !localAuthEnabled && !oidcEnabled
-  const showPasskeyLogin = localAuthEnabled && passkeySupported
-  const showAuthDivider = localAuthEnabled && (showPasskeyLogin || oidcEnabled)
 
   if (requires2fa) {
     return (
@@ -347,7 +419,11 @@ export default function LoginPage() {
           {localAuthEnabled && (
             <CardContent className="space-y-4 px-8 pt-4">
               {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg">
+                <div
+                  id="login-error"
+                  role="alert"
+                  className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg"
+                >
                   {error}
                 </div>
               )}
@@ -357,8 +433,13 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setError('')
+                  }}
                   placeholder="you@example.com"
+                  autoComplete="username webauthn"
+                  aria-describedby={error ? 'login-error' : undefined}
                   required
                 />
               </div>
@@ -369,6 +450,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
                 />
               </div>

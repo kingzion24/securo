@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 import pytest_asyncio
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -162,6 +163,136 @@ async def test_update_recurring_transaction(
     assert updated is not None
     assert updated.description == "Updated"
     assert updated.amount == Decimal("150")
+    assert updated.next_occurrence == date(2025, 1, 1)
+
+
+async def _monthly_rule(
+    session, test_workspace, test_user, account,
+    start_date: date = date(2026, 1, 5), day_of_month: int | None = None,
+):
+    return await create_recurring_transaction(
+        session, test_workspace.id, test_user.id,
+        RecurringTransactionCreate(
+            description="Rule",
+            amount=Decimal("100"),
+            type="debit",
+            frequency="monthly",
+            start_date=start_date,
+            day_of_month=day_of_month,
+            account_id=account.id,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_later_start_date_defers_next_occurrence(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    rec = await _monthly_rule(
+        session, test_workspace, test_user, test_account_for_recurring,
+        start_date=date(2026, 8, 31), day_of_month=31,
+    )
+    rec.next_occurrence = date(2026, 9, 30)
+    await session.commit()
+
+    updated = await update_recurring_transaction(
+        session, rec.id, test_workspace.id,
+        RecurringTransactionUpdate(start_date=date(2026, 10, 22), day_of_month=22),
+    )
+
+    assert updated is not None
+    assert updated.next_occurrence == date(2026, 10, 22)
+
+
+@pytest.mark.asyncio
+async def test_update_day_of_month_keeps_pointer_ahead_of_processed_periods(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    # September's occurrence on the 5th was already generated.
+    rec = await _monthly_rule(
+        session, test_workspace, test_user, test_account_for_recurring, day_of_month=5,
+    )
+    rec.next_occurrence = date(2026, 10, 5)
+    await session.commit()
+
+    updated = await update_recurring_transaction(
+        session, rec.id, test_workspace.id, RecurringTransactionUpdate(day_of_month=25),
+    )
+
+    assert updated is not None
+    assert updated.next_occurrence == date(2026, 10, 25)
+
+
+@pytest.mark.asyncio
+async def test_update_frequency_realigns_next_occurrence(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    rec = await _monthly_rule(
+        session, test_workspace, test_user, test_account_for_recurring,
+        start_date=date(2026, 1, 1),
+    )
+    rec.next_occurrence = date(2026, 3, 1)
+    await session.commit()
+
+    updated = await update_recurring_transaction(
+        session, rec.id, test_workspace.id, RecurringTransactionUpdate(frequency="weekly"),
+    )
+
+    assert updated is not None
+    assert updated.next_occurrence == date(2026, 3, 5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["start_date", "frequency"])
+async def test_update_rejects_null_schedule_field(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring, field
+):
+    rec = await _monthly_rule(session, test_workspace, test_user, test_account_for_recurring)
+
+    with pytest.raises(ValueError, match=f"{field} is required"):
+        await update_recurring_transaction(
+            session, rec.id, test_workspace.id, RecurringTransactionUpdate(**{field: None}),
+        )
+
+
+@pytest.mark.parametrize("day", [0, -1, 32])
+def test_schemas_reject_day_of_month_outside_calendar(day):
+    with pytest.raises(ValidationError):
+        RecurringTransactionUpdate(day_of_month=day)
+    with pytest.raises(ValidationError):
+        RecurringTransactionCreate(
+            description="Rule", amount=Decimal("1"), type="debit", frequency="monthly",
+            start_date=date(2026, 1, 1), account_id=uuid.uuid4(), day_of_month=day,
+        )
+
+
+def test_update_rejects_unsupported_frequency():
+    # An unknown cadence would reach _advance_date's monthly fallback and
+    # silently turn the rule monthly when the pointer is recomputed.
+    with pytest.raises(ValidationError):
+        RecurringTransactionUpdate(frequency="daily")  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.asyncio
+async def test_update_resending_schedule_keeps_next_occurrence(
+    session: AsyncSession, test_user, test_workspace, test_account_for_recurring
+):
+    rec = await _monthly_rule(
+        session, test_workspace, test_user, test_account_for_recurring, day_of_month=5,
+    )
+    rec.next_occurrence = date(2026, 10, 5)
+    await session.commit()
+
+    updated = await update_recurring_transaction(
+        session, rec.id, test_workspace.id,
+        RecurringTransactionUpdate(
+            start_date=date(2026, 1, 5), day_of_month=5, frequency="monthly",
+            description="Renamed",
+        ),
+    )
+
+    assert updated is not None
+    assert updated.next_occurrence == date(2026, 10, 5)
 
 
 @pytest.mark.asyncio
@@ -220,6 +351,11 @@ def test_advance_date_monthly_overflow():
 def test_advance_date_weekly():
     assert _advance_date(date(2025, 1, 1), "weekly") == date(2025, 1, 8)
     assert _advance_date(date(2025, 12, 29), "weekly") == date(2026, 1, 5)
+
+
+def test_advance_date_biweekly():
+    assert _advance_date(date(2026, 1, 5), "biweekly") == date(2026, 1, 19)
+    assert _advance_date(date(2026, 12, 28), "biweekly") == date(2027, 1, 11)
 
 
 def test_advance_date_yearly():
@@ -281,6 +417,18 @@ def test_advance_date_quarterly_leap_year_clamping_recovers():
     assert february == date(2024, 2, 29)
     may = _advance_date(february, "quarterly", intended_day=30)
     assert may == date(2024, 5, 30)
+
+
+def test_advance_date_semiannual_preserves_intended_day():
+    july = _advance_date(date(2026, 1, 31), "semiannual", intended_day=31)
+    assert july == date(2026, 7, 31)
+    january = _advance_date(july, "semiannual", intended_day=31)
+    assert january == date(2027, 1, 31)
+
+    february = _advance_date(date(2024, 8, 31), "semiannual", intended_day=31)
+    assert february == date(2025, 2, 28)
+    august = _advance_date(february, "semiannual", intended_day=31)
+    assert august == date(2025, 8, 31)
 
 
 @pytest.mark.parametrize(
@@ -352,6 +500,26 @@ def test_adjust_weekend_date_rejects_unsupported_policy_on_weekday():
                 (date(2024, 2, 29), date(2024, 2, 29)),
                 (date(2025, 2, 28), date(2025, 2, 28)),
                 (date(2026, 2, 28), date(2026, 2, 27)),
+            ],
+        ),
+        (
+            "biweekly",
+            date(2026, 8, 1),
+            1,
+            [
+                (date(2026, 8, 1), date(2026, 7, 31)),
+                (date(2026, 8, 15), date(2026, 8, 14)),
+                (date(2026, 8, 29), date(2026, 8, 28)),
+            ],
+        ),
+        (
+            "semiannual",
+            date(2024, 8, 31),
+            31,
+            [
+                (date(2024, 8, 31), date(2024, 8, 30)),
+                (date(2025, 2, 28), date(2025, 2, 28)),
+                (date(2025, 8, 31), date(2025, 8, 29)),
             ],
         ),
     ],
@@ -538,6 +706,41 @@ def test_get_occurrences_in_range_quarterly_respects_end_date():
     assert occurrences == [date(2026, 1, 15), date(2026, 4, 15)]
 
 
+@pytest.mark.parametrize(
+    ("frequency", "start", "range_start", "range_end", "intended_day", "expected"),
+    [
+        (
+            "biweekly",
+            date(2026, 1, 5),
+            date(2026, 1, 1),
+            date(2026, 2, 10),
+            None,
+            [date(2026, 1, 5), date(2026, 1, 19), date(2026, 2, 2)],
+        ),
+        (
+            "semiannual",
+            date(2024, 8, 31),
+            date(2024, 8, 1),
+            date(2025, 9, 1),
+            31,
+            [date(2024, 8, 31), date(2025, 2, 28), date(2025, 8, 31)],
+        ),
+    ],
+    ids=["biweekly", "semiannual"],
+)
+def test_get_occurrences_in_range_new_frequencies(
+    frequency, start, range_start, range_end, intended_day, expected
+):
+    assert get_occurrences_in_range(
+        start=start,
+        frequency=frequency,
+        end_date=None,
+        range_start=range_start,
+        range_end=range_end,
+        intended_day=intended_day,
+    ) == expected
+
+
 # ---------------------------------------------------------------------------
 # generate_pending
 # ---------------------------------------------------------------------------
@@ -665,6 +868,75 @@ async def test_generate_pending_quarterly_respects_end_date(
     await session.refresh(rec)
     assert rec.next_occurrence == date(2024, 8, 30)
     assert rec.is_active is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    (
+        "frequency",
+        "start",
+        "up_to",
+        "day_of_month",
+        "expected_dates",
+        "expected_next",
+    ),
+    [
+        (
+            "biweekly",
+            date(2026, 1, 5),
+            date(2026, 1, 19),
+            None,
+            [date(2026, 1, 5), date(2026, 1, 19)],
+            date(2026, 2, 2),
+        ),
+        (
+            "semiannual",
+            date(2024, 8, 31),
+            date(2025, 2, 28),
+            31,
+            [date(2024, 8, 31), date(2025, 2, 28)],
+            date(2025, 8, 31),
+        ),
+    ],
+    ids=["biweekly", "semiannual"],
+)
+async def test_generate_pending_new_frequencies(
+    session: AsyncSession,
+    test_user,
+    test_workspace,
+    test_account_for_recurring,
+    frequency,
+    start,
+    up_to,
+    day_of_month,
+    expected_dates,
+    expected_next,
+):
+    recurring = await create_recurring_transaction(
+        session,
+        test_workspace.id,
+        test_user.id,
+        RecurringTransactionCreate(
+            description=f"{frequency} regression",
+            amount=Decimal("25"),
+            type="debit",
+            frequency=frequency,
+            day_of_month=day_of_month,
+            start_date=start,
+            account_id=test_account_for_recurring.id,
+        ),
+    )
+
+    await generate_pending(session, test_user.id, up_to=up_to)
+
+    result = await session.execute(
+        select(Transaction)
+        .where(Transaction.recurring_transaction_id == recurring.id)
+        .order_by(Transaction.date)
+    )
+    actual_dates = [transaction.date for transaction in result.scalars()]
+    await session.refresh(recurring)
+    assert (actual_dates, recurring.next_occurrence) == (expected_dates, expected_next)
 
 
 @pytest.mark.asyncio

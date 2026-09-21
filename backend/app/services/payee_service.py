@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional, cast
 
-from sqlalchemy import CursorResult, case, select, func, update, delete
+from sqlalchemy import CursorResult, case, literal, select, func, update, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,6 +66,23 @@ async def get_payee(session: AsyncSession, payee_id: uuid.UUID, workspace_id: uu
     return result.scalar_one_or_none()
 
 
+
+def _same_name_as(name: str):
+    """The predicate the uq_payees_workspace_id_lower_name index enforces,
+    with both sides folded by the database.
+
+    Folding the incoming name in Python instead looks equivalent and is not:
+    `lower()` follows the database's locale, and a cluster created with the
+    C locale (a common default in Kubernetes Postgres charts, unlike the
+    en_US.utf8 our compose file gets) leaves every non-ASCII capital alone
+    where Python folds it. "MÜLLER GmbH" then never matched itself: the
+    lookup missed, the insert hit the index, the retry missed again, and a
+    whole bank sync went down over one counterparty (#678). Sending the name
+    through the same `lower(trim())` the index uses makes lookup and
+    constraint agree by construction, whatever the locale.
+    """
+    return func.lower(func.trim(Payee.name)) == func.lower(func.trim(literal(name)))
+
 async def get_or_create_payee(
     session: AsyncSession,
     user_id: uuid.UUID,
@@ -95,7 +112,7 @@ async def get_or_create_payee(
     # lookup hits the same row the unique constraint would reject.
     lookup = select(Payee).where(
         Payee.workspace_id == workspace_id,
-        func.lower(func.trim(Payee.name)) == name.lower(),
+        _same_name_as(name),
     )
     result = await session.execute(lookup)
     payee = result.scalar_one_or_none()
@@ -196,7 +213,7 @@ async def create_payee(
     existing = await session.execute(
         select(Payee).where(
             Payee.workspace_id == workspace_id,
-            func.lower(func.trim(Payee.name)) == name.lower(),
+            _same_name_as(name),
         )
     )
     if existing.scalar_one_or_none():
@@ -242,7 +259,7 @@ async def update_payee(
         existing = await session.execute(
             select(Payee).where(
                 Payee.workspace_id == workspace_id,
-                func.lower(func.trim(Payee.name)) == name.lower(),
+                _same_name_as(name),
                 Payee.id != payee_id,
             )
         )
@@ -260,10 +277,38 @@ async def update_payee(
     return payee
 
 
+async def _invoice_count(session: AsyncSession, payee_ids: list[uuid.UUID]) -> int:
+    """How many invoices name any of these counterparties.
+
+    Reads the model rather than calling the invoicing service: this is
+    the same layer, and a service-to-service call here would make the
+    payee module depend on a module most workspaces never enable.
+    """
+    from app.models.invoice import Invoice
+
+    result = await session.execute(
+        select(func.count())
+        .select_from(Invoice)
+        .where(Invoice.payee_id.in_(payee_ids))
+    )
+    return int(result.scalar_one())
+
+
 async def delete_payee(session: AsyncSession, payee_id: uuid.UUID, workspace_id: uuid.UUID) -> bool:
     payee = await get_payee(session, payee_id, workspace_id)
     if not payee:
         return False
+
+    # Invoices hold this payee under a RESTRICT foreign key, deliberately:
+    # deleting a client must never silently delete the record of money
+    # they owed. Refuse in words rather than letting the constraint
+    # surface as a 500, and point at the way out — merging keeps the
+    # history, which is what someone deleting a duplicate actually wants.
+    invoiced = await _invoice_count(session, [payee_id])
+    if invoiced:
+        raise ValueError(
+            f"payee_has_invoices:{invoiced}"
+        )
 
     # Null out transaction references
     await session.execute(
@@ -291,6 +336,10 @@ async def bulk_delete_payees(session: AsyncSession, workspace_id: uuid.UUID, pay
 
     if not valid_ids:
         return 0
+
+    invoiced = await _invoice_count(session, valid_ids)
+    if invoiced:
+        raise ValueError(f"payee_has_invoices:{invoiced}")
 
     # Null out transaction references
     await session.execute(
@@ -340,6 +389,22 @@ async def merge_payees(
         .values(payee_id=target_id)
     )
     reassigned = cast(CursorResult, result).rowcount
+
+    # Invoices follow the merge for the same reason transactions do: the
+    # two rows were one counterparty all along, and leaving the invoices
+    # behind would both strand them and trip the RESTRICT foreign key on
+    # the delete below.
+    #
+    # The issued document is untouched by this. Its snapshot froze the
+    # client's name and documents at issuance, so a merge changes who the
+    # invoice is *linked to* without rewriting what the client received.
+    from app.models.invoice import Invoice
+
+    await session.execute(
+        update(Invoice)
+        .where(Invoice.payee_id.in_(source_ids))
+        .values(payee_id=target_id)
+    )
 
     # Update mappings: point source mappings to target
     for source_id in source_ids:

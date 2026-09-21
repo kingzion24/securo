@@ -148,7 +148,14 @@ function RecurringTab() {
   })
 
   const frequencyLabel = (f: string) => {
-    const map: Record<string, string> = { monthly: t('recurring.monthly'), quarterly: t('recurring.quarterly'), weekly: t('recurring.weekly'), yearly: t('recurring.yearly') }
+    const map: Record<string, string> = {
+      monthly: t('recurring.monthly'),
+      quarterly: t('recurring.quarterly'),
+      semiannual: t('recurring.semiannual'),
+      weekly: t('recurring.weekly'),
+      biweekly: t('recurring.biweekly'),
+      yearly: t('recurring.yearly'),
+    }
     return map[f] ?? f
   }
 
@@ -392,11 +399,13 @@ function RecurringForm({
           <select className={selectClass} value={frequency} onChange={(e) => setFrequency(e.target.value as RecurringTransaction['frequency'])}>
             <option value="monthly">{t('recurring.monthly')}</option>
             <option value="quarterly">{t('recurring.quarterly')}</option>
+            <option value="semiannual">{t('recurring.semiannual')}</option>
             <option value="weekly">{t('recurring.weekly')}</option>
+            <option value="biweekly">{t('recurring.biweekly')}</option>
             <option value="yearly">{t('recurring.yearly')}</option>
           </select>
         </div>
-        {(frequency === 'monthly' || frequency === 'quarterly') && (
+        {(frequency === 'monthly' || frequency === 'quarterly' || frequency === 'semiannual') && (
           <div className="space-y-2">
             <Label>{t('recurring.dayOfMonth')}</Label>
             <NumberInput allowDecimals={false} min="1" max="31" value={dayOfMonth} onChange={setDayOfMonth} />
