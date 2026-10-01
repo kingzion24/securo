@@ -9,7 +9,7 @@ _MIGRATION_PATH = (
     Path(__file__).resolve().parent.parent
     / "alembic"
     / "versions"
-    / "077_asset_external_id_workspace.py"
+    / "091_asset_external_id_workspace.py"
 )
 _SPEC = importlib.util.spec_from_file_location("asset_external_id_migration", _MIGRATION_PATH)
 assert _SPEC is not None and _SPEC.loader is not None

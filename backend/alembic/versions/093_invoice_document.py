@@ -39,8 +39,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "079"
-down_revision: Union[str, None] = "078"
+revision: str = "093"
+down_revision: Union[str, None] = "092"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

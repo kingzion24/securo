@@ -2701,6 +2701,68 @@ class TestParseTzMessagesMpesa:
         assert len(txns) == 2
 
 
+class TestParseTzMessagesSelcomTransfer:
+    """Selcom Swahili person-to-person transfers: 'kwa <payee> - <wallet>
+    (<phone>)' (paying someone directly by phone/Selcom account, as opposed
+    to a billed LIPA/paybill account number). Also arrives as an
+    Imepokelewa settlement message (fee + balance) paired with an
+    Imethibitishwa confirmation message (TIPS reference instead)."""
+
+    def test_settled_pair_yields_debit_plus_fee(self):
+        text = (
+            "0921STWTV Imepokelewa. Umetuma TZS 10,000.00 kwa JOHN MWALIMU - "
+            "Mixx by Yas (255650123456) tarehe 2026-09-21 08:07:20. "
+            "Ada Jumla TZS 200.00 (Ada 154, VAT 31, Ex Duty 15). "
+            "Salio jipya ni TZS 50,000.00. Msaada 0800 714 888 / 0800 784 888\n\n"
+            "0921STWTV Imethibitishwa. Umetuma TZS 10,000.00 kwa JOHN MWALIMU - "
+            "Mixx by Yas (255650123456) tarehe 2026-09-21 08:07:20. "
+            "TIPS kumbukumbu 26263300746676.  Msaada 0800 714 888/0800 784 888"
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 2
+        main = next(t for t in txns if t.external_id == "0921STWTV")
+        fee = next(t for t in txns if t.external_id == "0921STWTV-fee")
+        assert main.type == "debit"
+        assert main.amount == Decimal("10000.00")
+        assert main.date == date(2026, 9, 21)
+        assert "JOHN MWALIMU" in main.description
+        assert "Mixx by Yas" in main.description
+        assert fee.type == "debit"
+        assert fee.amount == Decimal("200.00")
+
+    def test_confirmation_only_without_settlement_falls_back_no_fee(self):
+        # If only the Imethibitishwa/TIPS-kumbukumbu message is pasted (no
+        # matching settlement message), it must still produce a standalone
+        # debit with no fee row.
+        text = (
+            "0921STWTV Imethibitishwa. Umetuma TZS 10,000.00 kwa JOHN MWALIMU - "
+            "Mixx by Yas (255650123456) tarehe 2026-09-21 08:07:20. "
+            "TIPS kumbukumbu 26263300746676.  Msaada 0800 714 888/0800 784 888"
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        assert len(txns) == 1
+        assert txns[0].type == "debit"
+        assert txns[0].amount == Decimal("10000.00")
+        assert txns[0].external_id == "0921STWTV"
+
+    def test_payee_without_wallet_suffix_still_parses(self):
+        # The "- <wallet name>" segment is optional — some transfers show
+        # just "kwa <payee> (<phone>)" with no wallet/service label.
+        text = (
+            "0920SK2PL Imepokelewa. Umetuma TZS 5,000.00 kwa ASHA JUMA "
+            "(255712345678) tarehe 2026-09-20 09:15:00. "
+            "Ada Jumla TZS 100.00 (Ada 77, VAT 15, Ex Duty 8). "
+            "Salio jipya ni TZS 45,000.00."
+        )
+        txns, warnings = parse_tz_messages(text)
+        assert warnings == []
+        main = next(t for t in txns if t.external_id == "0920SK2PL")
+        assert main.amount == Decimal("5000.00")
+        assert "ASHA JUMA" in main.description
+
+
 class TestParseTzMessagesSelcomLipa:
     """Selcom Swahili 'LIPA'/paybill-style payments: 'kwa <payee> - <account>'
     (no phone number), arriving as an Imepokelewa settlement message (with
@@ -2763,6 +2825,65 @@ class TestParseTzMessagesSelcomLipa:
         assert txns[0].type == "debit"
         assert txns[0].amount == Decimal("41000.00")
         assert txns[0].external_id == "0919SLLXU"
+
+
+@pytest.mark.asyncio
+async def test_selcom_transfer_reimported_as_settled_pair_does_not_duplicate_principal(
+    session: AsyncSession, test_user: User, test_workspace, test_account: Account,
+):
+    """A Selcom P2P transfer's "Imethibitishwa" notice can be pasted and
+    imported on its own right after sending (no fee yet known), and the
+    full "Imepokelewa" + "Imethibitishwa" pair pasted later once the
+    settlement SMS arrives. Both pastes describe the exact same real-world
+    transaction (same ref, date, amount) — re-importing the pair must not
+    double-count the 10,000 TZS principal; it should only add the fee row
+    that the first, partial import didn't have yet."""
+    lone_confirmation = (
+        "0921STWTV Imethibitishwa. Umetuma TZS 10,000.00 kwa TRACY MANTAGO - "
+        "Mixx by Yas (255659885777) tarehe 2026-09-21 08:07:20. "
+        "TIPS kumbukumbu 26263300746676.  Msaada 0800 714 888/0800 784 888"
+    )
+    settled_pair = (
+        "0921STWTV Imepokelewa. Umetuma TZS 10,000.00 kwa TRACY MANTAGO - "
+        "Mixx by Yas (255659885777) tarehe 2026-09-21 08:07:20. "
+        "Ada Jumla TZS 300.00 (Ada 231, VAT 46, Ex Duty 23). "
+        "Salio jipya ni TZS 151,279.15. Msaada 0800 714 888 / 0800 784 888\n\n"
+        + lone_confirmation
+    )
+
+    first_txns, first_warnings = parse_tz_messages(lone_confirmation)
+    assert first_warnings == []
+    assert len(first_txns) == 1
+
+    imported, skipped, excluded, _ = await import_transactions(
+        session, test_workspace.id, test_user.id, test_account.id,
+        first_txns, "paste",
+    )
+    assert (imported, skipped, excluded) == (1, 0, 0)
+
+    second_txns, second_warnings = parse_tz_messages(settled_pair)
+    assert second_warnings == []
+    assert len(second_txns) == 2  # principal + fee
+
+    imported, skipped, excluded, _ = await import_transactions(
+        session, test_workspace.id, test_user.id, test_account.id,
+        second_txns, "paste",
+    )
+    # The principal (same external_id + date as the first import) is a
+    # duplicate and must be skipped; only the newly-seen fee row lands.
+    assert (imported, skipped, excluded) == (1, 1, 0)
+
+    from app.models.transaction import Transaction
+    from sqlalchemy import select
+    result = await session.execute(
+        select(Transaction).where(Transaction.account_id == test_account.id)
+    )
+    rows = result.scalars().all()
+    assert len(rows) == 2
+    principal = next(t for t in rows if t.external_id == "0921STWTV")
+    fee = next(t for t in rows if t.external_id == "0921STWTV-fee")
+    assert principal.amount == Decimal("10000.00")
+    assert fee.amount == Decimal("300.00")
 
 
 @pytest.mark.asyncio
